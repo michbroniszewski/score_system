@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 
+from score_system.domain.errors import DomainError
 from score_system.domain.models import Match
 
 
@@ -12,9 +13,9 @@ def round_robin(teams: Sequence[str], double: bool = False) -> list[Match]:
     one and, within a leg, no team plays more than two home or away matches in a row.
     """
     if len(teams) < 2:
-        raise ValueError("a round robin needs at least two teams")
+        raise DomainError("a round robin needs at least two teams")
     if len(set(teams)) != len(teams):
-        raise ValueError("team identifiers must be unique")
+        raise DomainError("team identifiers must be unique")
 
     # With an odd number of teams, index len(teams) is a "rest" slot paired with a real team.
     n = len(teams) + len(teams) % 2

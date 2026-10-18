@@ -14,6 +14,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+# Time zone of competitions created without one; match days are counted in it.
+DEFAULT_TIMEZONE = "Europe/Warsaw"
+
 
 class Base(DeclarativeBase):
     pass
@@ -35,6 +38,11 @@ class CompetitionRow(Base):
     name: Mapped[str] = mapped_column(String(200))
     # Name of the rules preset file in backend/presets/, e.g. "volleyball".
     preset: Mapped[str] = mapped_column(String(50))
+    # IANA time zone name, e.g. "Europe/Warsaw". Dates are stored in UTC; a match's day
+    # (for the roster on match day) is its date in this zone.
+    timezone: Mapped[str] = mapped_column(
+        String(64), default=DEFAULT_TIMEZONE, server_default=DEFAULT_TIMEZONE
+    )
 
 
 class ClubRow(Base):

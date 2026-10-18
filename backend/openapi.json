@@ -1428,6 +1428,13 @@
           "preset": {
             "type": "string",
             "title": "Preset"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Timezone",
+            "description": "IANA time zone; a match's day (for rosters) is its date in this zone.",
+            "default": "Europe/Warsaw"
           }
         },
         "type": "object",
@@ -1451,13 +1458,18 @@
           "preset": {
             "type": "string",
             "title": "Preset"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
           }
         },
         "type": "object",
         "required": [
           "slug",
           "name",
-          "preset"
+          "preset",
+          "timezone"
         ],
         "title": "CompetitionOut"
       },
@@ -1509,6 +1521,7 @@
           },
           "value": {
             "type": "integer",
+            "maximum": 1000.0,
             "minimum": 1.0,
             "title": "Value",
             "default": 1

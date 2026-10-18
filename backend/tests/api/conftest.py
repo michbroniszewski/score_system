@@ -2,16 +2,20 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy import Connection
+from sqlalchemy.orm import sessionmaker
 
-from score_system.api.deps import get_repo
+from score_system.api import deps
 from score_system.api.main import app
-from score_system.infrastructure.repository import Repository
 
 
 @pytest.fixture
-def client(session: Session) -> Iterator[TestClient]:
-    """API client on the rolled-back test session instead of the real database."""
-    app.dependency_overrides[get_repo] = lambda: Repository(session)
+def client(connection: Connection, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """API client on the test's rolled-back transaction instead of the real database.
+
+    The real `get_repo` runs, so each request commits or rolls back its own savepoint
+    just as it would commit or roll back its transaction.
+    """
+    sessions = sessionmaker(bind=connection, join_transaction_mode="create_savepoint")
+    monkeypatch.setattr(deps, "_sessions", lambda: sessions)
     yield TestClient(app)
-    app.dependency_overrides.clear()

@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 from datetime import UTC, datetime
 
+from score_system.domain.errors import DomainError
 from score_system.domain.models import Match, MatchResult, MatchStatus, SetScore
 from score_system.domain.results import validate_sets
 from score_system.domain.rules import RuleSet
@@ -14,7 +15,7 @@ OPEN = {S.SCHEDULED, S.POSTPONED}
 RESULT_ALLOWED = {S.SCHEDULED, S.POSTPONED, S.PLAYED, S.WALKOVER}
 
 
-class InvalidTransitionError(ValueError):
+class InvalidTransitionError(DomainError):
     pass
 
 
@@ -22,7 +23,7 @@ def reschedule(match: Match, starts_at: datetime, venue: str | None = None) -> M
     """Set a (new) date, and optionally a venue; the current venue is kept when None."""
     _require(match, OPEN, "reschedule")
     if starts_at.tzinfo is None:
-        raise ValueError("starts_at must be timezone-aware")
+        raise DomainError("starts_at must be timezone-aware")
     return replace(
         match,
         status=S.SCHEDULED,
@@ -52,7 +53,7 @@ def record_result(match: Match, sets: Iterable[SetScore], ruleset: RuleSet) -> M
 def record_walkover(match: Match, winner: str) -> Match:
     _require(match, RESULT_ALLOWED, "record a walkover for")
     if winner not in (match.home, match.away):
-        raise ValueError(f"{winner!r} does not play in this match")
+        raise DomainError(f"{winner!r} does not play in this match")
     return replace(match, status=S.WALKOVER, sets=(), walkover_winner=winner)
 
 
