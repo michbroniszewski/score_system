@@ -1,0 +1,53 @@
+# Docker Compose: the whole local environment.
+#   docker compose up -d    start everything in the background (or: make up)
+#   docker compose down     stop and remove the containers (data volume stays)
+# Development-only settings (hot reload, mounted source) live in
+# compose.override.yaml, which Compose merges in automatically.
+
+services:
+  # PostgreSQL database. Data is kept in the named volume "db-data", so it
+  # survives `docker compose down` (only `down -v` deletes it).
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-score}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-score}
+      POSTGRES_DB: ${POSTGRES_DB:-score_system}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # The healthcheck tells Compose when the database actually accepts
+    # connections; "api" waits for it (see depends_on below).
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # FastAPI backend, built from backend/Dockerfile.
+  api:
+    build: ./backend
+    ports:
+      - "${API_PORT:-8000}:8000"
+    # Start only once the database is healthy. The API does not use the
+    # database yet (persistence arrives in stage 3), but the wiring is ready.
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Vue frontend served by the Vite dev server.
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      # Keep node_modules inside the container (in an anonymous volume), so
+      # Linux-built packages never mix with the ones on the host.
+      - /app/node_modules
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
