@@ -2,11 +2,18 @@
 # `docker compose up`. Ignored when files are passed explicitly with -f.
 
 services:
+  # Expose the database on the host, so tests and `uv run alembic` can reach it.
+  db:
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
   api:
     # Mount the source code into the container and let uvicorn reload on
     # every change, so there is no need to rebuild the image while coding.
     volumes:
       - ./backend/src:/app/src
+      - ./backend/migrations:/app/migrations
+      - ./backend/presets:/app/presets
     command: ["uvicorn", "score_system.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src"]
 
   # Adminer: a small web UI for browsing the database at http://localhost:8080

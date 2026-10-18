@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from uuid import UUID
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ class Match:
     venue: str | None = None
     sets: tuple[SetScore, ...] = ()  # only when PLAYED
     walkover_winner: str | None = None  # only when WALKOVER
+    id: UUID | None = None  # assigned when the match is first stored
 
 
 @dataclass(frozen=True)

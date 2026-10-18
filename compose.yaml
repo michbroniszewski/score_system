@@ -26,10 +26,13 @@ services:
   # FastAPI backend, built from backend/Dockerfile.
   api:
     build: ./backend
+    environment:
+      # Inside the Compose network, containers reach each other by service
+      # name, so the database host is simply "db".
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-score}:${POSTGRES_PASSWORD:-score}@db:5432/${POSTGRES_DB:-score_system}
     ports:
       - "${API_PORT:-8000}:8000"
-    # Start only once the database is healthy. The API does not use the
-    # database yet (persistence arrives in stage 3), but the wiring is ready.
+    # Start only once the database is healthy.
     depends_on:
       db:
         condition: service_healthy

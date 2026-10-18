@@ -19,9 +19,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
-# Now copy the source and install the project itself.
+# Now copy the source and install the project itself, plus the files it reads at
+# runtime: discipline presets and database migrations.
 COPY src ./src
 RUN uv sync --locked --no-dev
+COPY presets ./presets
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 # --- Stage 2: runtime -------------------------------------------------------
 FROM python:3.12-slim AS runtime

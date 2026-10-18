@@ -51,13 +51,15 @@ Lint and tests run on the host (uv for the backend, npm for the frontend), with 
 
 - `make install`: install backend (`uv sync`) and frontend (`npm ci`) dependencies.
 - `make up` / `make down` / `make logs`: start, stop and follow the Docker Compose environment (`db`, `api`, `frontend`, plus `adminer` from `compose.override.yaml`).
+- `make migrate` / `make seed`: apply Alembic migrations / load the sample league (`score seed`), both inside the `api` container.
 - `make lint`: `ruff check`, `ruff format --check`, `mypy` (strict), `eslint`, `vue-tsc`.
 - `make format`: auto-fix and format the backend with ruff.
-- `make test`: backend `pytest --cov` and frontend `vitest`.
+- `make test`: starts the `db` container, then backend `pytest --cov` and frontend `vitest`.
 - Single backend test: `cd backend && uv run pytest tests/test_file.py::test_name`.
 - Single frontend test: `cd frontend && npx vitest run src/path/file.spec.ts`.
-- Planned in later stages: `make migrate`, `make seed`, `make export`.
+- New migration: `cd backend && uv run alembic revision --autogenerate -m "..."` (db running), then review it.
+- Planned in later stages: `make export`.
 
 The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and build, and `docker compose build`.
 
-Domain tests run without a database; integration and API tests will need PostgreSQL (a container locally, a service container in CI) once persistence arrives in stage 3.
+Domain tests run without a database (`uv run pytest tests/domain`). Tests in `tests/infrastructure/` need PostgreSQL (the Compose `db` service locally, a service container in CI): they recreate the `score_system_test` database (`TEST_DATABASE_URL`), build the schema by running the migrations, and roll back each test.
