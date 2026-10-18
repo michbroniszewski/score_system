@@ -4,11 +4,17 @@ version = "0.1.0"
 description = "Universal amateur league and tournament system (API and domain core)."
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.20.0",
     "fastapi>=0.146.0",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.14.1",
     "pyyaml>=6.0.3",
+    "sqlalchemy>=2",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[project.scripts]
+score = "score_system.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12.0"]

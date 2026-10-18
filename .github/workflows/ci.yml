@@ -8,6 +8,23 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    # PostgreSQL for the integration tests, reachable on localhost:5432.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: score
+          POSTGRES_PASSWORD: score
+          POSTGRES_DB: score_system
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U score"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://score:score@localhost:5432/score_system_test
     defaults:
       run:
         working-directory: backend

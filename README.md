@@ -14,6 +14,8 @@ A universal system for running amateur leagues and tournaments, configurable per
 cp .env.example .env    # local settings (database credentials, ports)
 make install            # backend and frontend dependencies
 make up                 # start db, api, frontend and adminer in Docker
+make migrate            # create the database tables
+make seed               # optional: load a sample volleyball league
 ```
 
 Then open:
@@ -29,8 +31,12 @@ Then open:
 
 ```sh
 make lint    # ruff, mypy, eslint, vue-tsc
-make test    # pytest and vitest
+make test    # pytest (starts the db container) and vitest
 make help    # all targets
 ```
+
+Integration tests use a separate `score_system_test` database, recreated on every run. If you change the database credentials in `.env`, set `TEST_DATABASE_URL` to match.
+
+New database migration after changing `backend/src/score_system/infrastructure/orm.py` (with `make up` running): `cd backend && uv run alembic revision --autogenerate -m "describe the change"`, review the generated file in `backend/migrations/versions/`, then `make migrate`.
 
 Optional git hooks: `cd backend && uv run pre-commit install`.
