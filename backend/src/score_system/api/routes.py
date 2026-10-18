@@ -54,7 +54,7 @@ def health() -> dict[str, str]:
 @router.get("/presets")
 def list_presets() -> list[str]:
     """Discipline rule presets a competition can use."""
-    return preset_names()
+    return list(preset_names())
 
 
 # --- clubs --------------------------------------------------------------------
@@ -62,7 +62,7 @@ def list_presets() -> list[str]:
 
 @router.get("/clubs")
 def list_clubs(repo: Repo) -> list[ClubOut]:
-    return [ClubOut.model_validate(c) for c in repo.clubs()]
+    return [ClubOut.model_validate(c) for c in services.clubs(repo)]
 
 
 @router.post("/clubs", status_code=status.HTTP_201_CREATED)
@@ -72,9 +72,9 @@ def create_club(body: ClubIn, repo: Repo) -> ClubOut:
 
 @router.get("/clubs/{club_id}")
 def get_club(club_id: UUID, repo: Repo) -> ClubDetail:
-    club = services.club(repo, club_id)
-    teams = [TeamRef(id=t.id, name=t.name) for t in repo.club_teams(club_id)]
-    return ClubDetail(id=club.id, name=club.name, teams=teams)
+    club, teams = services.club_teams(repo, club_id)
+    refs = [TeamRef(id=t.id, name=t.name) for t in teams]
+    return ClubDetail(id=club.id, name=club.name, teams=refs)
 
 
 # --- teams --------------------------------------------------------------------
@@ -83,7 +83,7 @@ def get_club(club_id: UUID, repo: Repo) -> ClubDetail:
 @router.get("/teams")
 def list_saved_teams(repo: Repo) -> list[TeamOut]:
     """The general base: saved teams, to enter into new competitions."""
-    return [TeamOut.model_validate(t) for t in repo.saved_teams()]
+    return [TeamOut.model_validate(t) for t in services.saved_teams(repo)]
 
 
 @router.post("/teams", status_code=status.HTTP_201_CREATED)
@@ -108,7 +108,7 @@ def update_team(team_id: UUID, body: TeamPatch, repo: Repo) -> TeamOut:
 
 @router.get("/competitions")
 def list_competitions(repo: Repo) -> list[CompetitionOut]:
-    return [CompetitionOut.model_validate(c) for c in repo.competitions()]
+    return [CompetitionOut.model_validate(c) for c in services.competitions(repo)]
 
 
 @router.post("/competitions", status_code=status.HTTP_201_CREATED)
@@ -125,39 +125,42 @@ def get_competition(slug: str, repo: Repo) -> CompetitionOut:
 @router.get("/competitions/{slug}/teams")
 def list_competition_teams(slug: str, repo: Repo) -> list[TeamOut]:
     comp = services.competition(repo, slug)
-    return [TeamOut.model_validate(t) for t in repo.competition_teams(comp.id)]
+    return [TeamOut.model_validate(t) for t in services.competition_teams(repo, comp)]
 
 
 @router.post("/competitions/{slug}/teams", status_code=status.HTTP_201_CREATED)
 def enter_team(slug: str, body: EntryIn, repo: Repo) -> TeamOut:
-    services.competition(repo, slug)
+    comp = services.competition(repo, slug)
     if body.team is not None:
         new = body.team
         team_id = services.create_team(repo, new.name, new.short_name, new.club_id, new.saved).id
     else:
         assert body.team_id is not None
         team_id = body.team_id
-    services.enter_team(repo, slug, team_id)
+    services.enter_team(repo, comp, team_id)
     return TeamOut.model_validate(services.team(repo, team_id))
 
 
 @router.post("/competitions/{slug}/fixtures", status_code=status.HTTP_201_CREATED)
 def generate_fixtures(slug: str, body: FixturesIn, repo: Repo) -> list[MatchOut]:
-    matches = services.generate_fixtures(repo, slug, body.double)
-    return _match_list(repo, slug, matches)
+    comp = services.competition(repo, slug)
+    matches = services.generate_fixtures(repo, comp, body.double)
+    names = services.team_names(repo, comp)
+    return [_match_out(m, names) for m in matches]
 
 
 @router.get("/competitions/{slug}/matches")
 def list_matches(slug: str, repo: Repo) -> list[MatchOut]:
     comp = services.competition(repo, slug)
-    return _match_list(repo, slug, repo.matches(comp.id))
+    names = services.team_names(repo, comp)
+    return [_match_out(m, names) for m in services.matches(repo, comp)]
 
 
 @router.get("/competitions/{slug}/standings")
 def get_standings(slug: str, repo: Repo) -> list[StandingOut]:
-    rows = services.standings(repo, slug)
-    names = _team_names(repo, slug)
-    return [_standing_out(row, names) for row in rows]
+    comp = services.competition(repo, slug)
+    names = services.team_names(repo, comp)
+    return [_standing_out(row, names) for row in services.standings(repo, comp)]
 
 
 # --- matches ------------------------------------------------------------------
@@ -166,7 +169,7 @@ def get_standings(slug: str, repo: Repo) -> list[StandingOut]:
 @router.get("/matches/{match_id}")
 def get_match(match_id: UUID, repo: Repo) -> MatchOut:
     comp, match = services.match(repo, match_id)
-    return _match_out(match, _team_names(repo, comp.slug))
+    return _match_out(match, services.team_names(repo, comp))
 
 
 @router.post("/matches/{match_id}/reschedule")
@@ -197,14 +200,13 @@ def record_walkover(match_id: UUID, body: WalkoverIn, repo: Repo) -> MatchOut:
 
 @router.get("/matches/{match_id}/events")
 def list_events(match_id: UUID, repo: Repo) -> list[EventOut]:
-    services.match(repo, match_id)
-    return [_event_out(repo, e) for e in repo.events(match_id)]
+    return [_event_out(e, p) for e, p in services.match_events(repo, match_id)]
 
 
 @router.post("/matches/{match_id}/events", status_code=status.HTTP_201_CREATED)
 def add_event(match_id: UUID, body: EventIn, repo: Repo) -> EventOut:
     row = services.add_event(repo, match_id, body.team_id, body.player_id, body.stat, body.value)
-    return _event_out(repo, row)
+    return _event_out(row, services.player(repo, row.player_id))
 
 
 @router.delete("/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -234,20 +236,20 @@ def update_player(player_id: UUID, body: PlayerPatch, repo: Repo) -> PlayerOut:
 @router.get("/competitions/{slug}/teams/{team_id}/roster")
 def get_roster(slug: str, team_id: UUID, repo: Repo) -> list[RosterEntryOut]:
     """Current and past roster entries (past ones have `left_on`)."""
-    comp = services.team_in_competition(repo, slug, team_id)
-    return [_entry_out(e, p) for e, p in repo.roster_entries(comp.id, team_id)]
+    comp = services.competition(repo, slug)
+    return [_entry_out(e, p) for e, p in services.roster(repo, comp, team_id)]
 
 
 @router.post("/competitions/{slug}/teams/{team_id}/roster", status_code=status.HTTP_201_CREATED)
 def join_roster(slug: str, team_id: UUID, body: RosterIn, repo: Repo) -> RosterEntryOut:
-    services.competition(repo, slug)
+    comp = services.competition(repo, slug)
     if body.player is not None:
         player_id = services.create_player(repo, body.player.first_name, body.player.last_name).id
     else:
         assert body.player_id is not None
         player_id = body.player_id
     entry = services.join_roster(
-        repo, slug, team_id, player_id, body.number, body.position, body.joined_on
+        repo, comp, team_id, player_id, body.number, body.position, body.joined_on
     )
     return _entry_out(entry, services.player(repo, player_id))
 
@@ -262,27 +264,18 @@ def leave_roster(entry_id: UUID, body: LeaveIn, repo: Repo) -> RosterEntryOut:
 def get_player_stats(slug: str, repo: Repo) -> list[PlayerStatsOut]:
     """Statistic totals per player, by last name."""
     comp = services.competition(repo, slug)
-    totals = services.player_stats(repo, slug)
-    names = _team_names(repo, slug)
-    players: dict[str, PlayerRow] = {}  # in roster order, i.e. by last name
-    current_team: dict[str, TeamRef] = {}
-    for entry, player in repo.roster_entries(comp.id):
-        players[str(player.id)] = player
-        if entry.left_on is None:
-            current_team[str(player.id)] = _ref(str(entry.team_id), names)
+    names = services.team_names(repo, comp)
     return [
-        PlayerStatsOut(player=_player_ref(p), team=current_team.get(pid), stats=totals[pid])
-        for pid, p in players.items()
-        if pid in totals
+        PlayerStatsOut(
+            player=_player_ref(row.player),
+            team=None if row.team_id is None else _ref(str(row.team_id), names),
+            stats=row.stats,
+        )
+        for row in services.player_stats(repo, comp)
     ]
 
 
 # --- response building --------------------------------------------------------
-
-
-def _team_names(repo: Repository, slug: str) -> dict[str, str]:
-    comp = services.competition(repo, slug)
-    return {str(t.id): t.name for t in repo.competition_teams(comp.id)}
 
 
 def _ref(team_id: str, names: dict[str, str]) -> TeamRef:
@@ -304,15 +297,9 @@ def _match_out(match: Match, names: dict[str, str]) -> MatchOut:
     )
 
 
-def _match_list(repo: Repository, slug: str, matches: list[Match]) -> list[MatchOut]:
-    names = _team_names(repo, slug)
-    return [_match_out(m, names) for m in matches]
-
-
 def _changed(repo: Repository, match_id: UUID, change: services.MatchChange) -> MatchOut:
-    match = services.change_match(repo, match_id, change)
-    comp, _ = services.match(repo, match_id)
-    return _match_out(match, _team_names(repo, comp.slug))
+    comp, match = services.change_match(repo, match_id, change)
+    return _match_out(match, services.team_names(repo, comp))
 
 
 def _standing_out(row: StandingRow, names: dict[str, str]) -> StandingOut:
@@ -346,11 +333,11 @@ def _entry_out(entry: RosterEntryRow, player: PlayerRow) -> RosterEntryOut:
     )
 
 
-def _event_out(repo: Repository, event: MatchEventRow) -> EventOut:
+def _event_out(event: MatchEventRow, player: PlayerRow) -> EventOut:
     return EventOut(
         id=event.id,
         team_id=event.team_id,
-        player=_player_ref(services.player(repo, event.player_id)),
+        player=_player_ref(player),
         stat=event.stat,
         value=event.value,
     )

@@ -9,8 +9,8 @@ class InvalidResultError(DomainError):
     pass
 
 
-def validate_sets(sets: Sequence[SetScore], ruleset: RuleSet) -> None:
-    """Raise InvalidResultError unless `sets` is a complete match under `ruleset`."""
+def validate_sets(sets: Sequence[SetScore], ruleset: RuleSet) -> tuple[int, int]:
+    """Sets won by home and away; InvalidResultError unless a complete match under `ruleset`."""
     if not sets or any(s.home == s.away or s.home < 0 or s.away < 0 for s in sets):
         raise InvalidResultError(f"every set needs a winner and non-negative scores: {sets}")
 
@@ -25,3 +25,4 @@ def validate_sets(sets: Sequence[SetScore], ruleset: RuleSet) -> None:
         raise InvalidResultError(
             f"a match ends as soon as a team wins {ruleset.sets_to_win} sets: {sets}"
         )
+    return home_sets, away_sets
