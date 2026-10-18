@@ -25,6 +25,8 @@ Then open:
 - Frontend: http://localhost:5173
 - Adminer (database browser): http://localhost:8080 (system PostgreSQL, server `db`)
 
+In Swagger UI you can try the whole API: create a competition, enter teams, generate fixtures, record results and read the standings. After `make seed`, see for example `GET /api/v1/competitions/sample-volleyball-league/standings`.
+
 `make down` stops everything; database data stays in the `db-data` volume.
 
 ## Development

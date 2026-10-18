@@ -29,3 +29,6 @@ def test_seed_creates_sample_league_once(session: Session) -> None:
 
     club = session.scalars(select(ClubRow).where(ClubRow.name == SAMPLE_CLUB)).one()
     assert [t.name for t in repo.club_teams(club.id)] == ["Eagles", "Eagles II"]
+
+    assert len(repo.roster_entries(competition.id)) == 2 * len(SAMPLE_TEAMS)
+    assert len(repo.competition_events(competition.id)) == 2 * 5  # two per played match

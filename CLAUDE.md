@@ -52,6 +52,7 @@ Lint and tests run on the host (uv for the backend, npm for the frontend), with 
 - `make install`: install backend (`uv sync`) and frontend (`npm ci`) dependencies.
 - `make up` / `make down` / `make logs`: start, stop and follow the Docker Compose environment (`db`, `api`, `frontend`, plus `adminer` from `compose.override.yaml`).
 - `make migrate` / `make seed`: apply Alembic migrations / load the sample league (`score seed`), both inside the `api` container.
+- `make openapi`: regenerate the API schema snapshot `backend/openapi.json`; `tests/api/test_openapi_snapshot.py` fails until the snapshot matches the code. Commit it only for an intended API change.
 - `make lint`: `ruff check`, `ruff format --check`, `mypy` (strict), `eslint`, `vue-tsc`.
 - `make format`: auto-fix and format the backend with ruff.
 - `make test`: starts the `db` container, then backend `pytest --cov` and frontend `vitest`.
@@ -61,5 +62,7 @@ Lint and tests run on the host (uv for the backend, npm for the frontend), with 
 - Planned in later stages: `make export`.
 
 The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and build, and `docker compose build`.
+
+Request flow: `api/routes.py` (thin, builds responses) → `application/services.py` (use cases; raises `NotFoundError` → 404, `ConflictError` → 409) → `infrastructure/repository.py` + `domain/`. Domain `InvalidTransitionError` maps to 409 and other `ValueError`s to 422 (`api/main.py`). Each request is one transaction (`api/deps.py`).
 
 Domain tests run without a database (`uv run pytest tests/domain`). Tests in `tests/infrastructure/` need PostgreSQL (the Compose `db` service locally, a service container in CI): they recreate the `score_system_test` database (`TEST_DATABASE_URL`), build the schema by running the migrations, and roll back each test.

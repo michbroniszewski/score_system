@@ -7,3 +7,4 @@ def test_volleyball_preset_loads(volleyball: RuleSet) -> None:
     assert volleyball.points == {"3:0": (3, 0), "3:1": (3, 0), "3:2": (2, 1)}
     assert volleyball.tiebreakers == ["points", "set_ratio", "small_points_ratio"]
     assert volleyball.walkover_set == (25, 0)
+    assert volleyball.stats == ["points_scored", "aces", "blocks", "mvp"]

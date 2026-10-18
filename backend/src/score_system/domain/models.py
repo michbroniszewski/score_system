@@ -54,3 +54,12 @@ class StandingRow:
     sets_lost: int
     small_points_won: int
     small_points_lost: int
+
+
+@dataclass(frozen=True)
+class StatEvent:
+    """A player's statistic from one match, e.g. 3 aces."""
+
+    player: str
+    stat: str
+    value: int = 1

@@ -31,6 +31,7 @@ def test_valid_ruleset() -> None:
         {"walkover_set": [0, 25]},  # winner must score more
         {"walkover_set": [25, 25]},
         {"walkover_set": [25, -1]},
+        {"stats": ["aces", "aces"]},
     ],
 )
 def test_invalid_ruleset_is_rejected(change: dict[str, Any]) -> None:

@@ -15,3 +15,7 @@ PRESETS_DIR = Path(__file__).resolve().parents[3] / "presets"
 
 def load_preset(name: str) -> RuleSet:
     return load_ruleset(PRESETS_DIR / f"{name}.yaml")
+
+
+def preset_names() -> list[str]:
+    return sorted(path.stem for path in PRESETS_DIR.glob("*.yaml"))

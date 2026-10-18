@@ -2,7 +2,7 @@
 # Lint and tests run on the host (uv + npm), the same steps as CI.
 # migrate and seed run inside the api container.
 
-.PHONY: help install up down logs migrate seed lint format test
+.PHONY: help install up down logs migrate seed openapi lint format test
 
 help:
 	@echo "install  install backend (uv) and frontend (npm) dependencies"
@@ -11,6 +11,7 @@ help:
 	@echo "logs     follow the logs of all services"
 	@echo "migrate  apply database migrations (after make up)"
 	@echo "seed     load the sample volleyball league (after make migrate)"
+	@echo "openapi  regenerate the API schema snapshot backend/openapi.json"
 	@echo "lint     ruff, mypy, eslint and vue-tsc"
 	@echo "format   auto-format the backend code with ruff"
 	@echo "test     backend (pytest, starts the db container) and frontend (vitest) tests"
@@ -33,6 +34,9 @@ migrate:
 
 seed:
 	docker compose exec api score seed
+
+openapi:
+	cd backend && uv run score openapi > openapi.json
 
 lint:
 	cd backend && uv run ruff check
