@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.api.test_api import API, STRAIGHT_WIN, get, post
+from tests.api.helpers import API, STRAIGHT_WIN, get, post
 
 
 @pytest.fixture

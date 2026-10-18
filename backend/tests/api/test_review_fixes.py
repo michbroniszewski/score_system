@@ -16,7 +16,7 @@ from starlette.types import Message, Receive, Scope, Send
 from score_system.api.main import app
 from score_system.domain.errors import DomainError
 from score_system.infrastructure.repository import Repository
-from tests.api.test_api import API, STRAIGHT_WIN, get, post
+from tests.api.helpers import API, STRAIGHT_WIN, get, post
 
 
 @pytest.fixture

@@ -46,7 +46,9 @@ services:
       # Keep node_modules inside the container (in an anonymous volume), so
       # Linux-built packages never mix with the ones on the host.
       - /app/node_modules
-    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    # Install only when node_modules is missing or older than package-lock.json
+    # (npm writes node_modules/.package-lock.json on every install).
+    command: sh -c "{ [ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; } && npm run dev -- --host 0.0.0.0"
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     depends_on:
