@@ -1,8 +1,9 @@
 import pytest
 
 from score_system.domain.models import MatchResult, SetScore
+from score_system.domain.results import InvalidResultError
 from score_system.domain.rules import RuleSet
-from score_system.domain.standings import InvalidResultError, compute_standings
+from score_system.domain.standings import compute_standings
 
 
 def match(home: str, away: str, *sets: tuple[int, int]) -> MatchResult:

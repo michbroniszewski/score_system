@@ -2,12 +2,9 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 
 from score_system.domain.models import MatchResult, StandingRow
+from score_system.domain.results import InvalidResultError, validate_sets
 from score_system.domain.rules import RuleSet
 from score_system.domain.tiebreakers import TIEBREAKERS
-
-
-class InvalidResultError(ValueError):
-    pass
 
 
 @dataclass
@@ -46,20 +43,12 @@ def _add_match(tallies: dict[str, _Tally], match: MatchResult, ruleset: RuleSet)
             raise InvalidResultError(f"unknown team {team!r}")
     if match.home == match.away:
         raise InvalidResultError(f"team {match.home!r} cannot play itself")
-    if not match.sets or any(s.home == s.away or s.home < 0 or s.away < 0 for s in match.sets):
-        raise InvalidResultError(f"every set needs a winner and non-negative scores: {match}")
+    validate_sets(match.sets, ruleset)
 
     home_sets = sum(1 for s in match.sets if s.home > s.away)
     away_sets = len(match.sets) - home_sets
     home_won = home_sets > away_sets
     winner_sets, loser_sets = (home_sets, away_sets) if home_won else (away_sets, home_sets)
-    last_set_won_by_winner = (match.sets[-1].home > match.sets[-1].away) == home_won
-    if not (
-        winner_sets == ruleset.sets_to_win and loser_sets < winner_sets and last_set_won_by_winner
-    ):
-        raise InvalidResultError(
-            f"a match ends as soon as a team wins {ruleset.sets_to_win} sets: {match}"
-        )
     winner_points, loser_points = ruleset.points[f"{winner_sets}:{loser_sets}"]
 
     home_small = sum(s.home for s in match.sets)
