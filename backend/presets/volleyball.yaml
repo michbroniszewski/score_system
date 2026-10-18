@@ -7,3 +7,4 @@ points:                        # set result (winner:loser) -> [winner points, lo
   "3:1": [3, 0]
   "3:2": [2, 1]
 tiebreakers: [points, set_ratio, small_points_ratio]
+walkover_set: [25, 0]          # every set of a walkover: the result is 3:0, small points 75:0

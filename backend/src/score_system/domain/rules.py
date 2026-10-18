@@ -16,6 +16,8 @@ class RuleSet(BaseModel):
     # Set result "winner:loser" (e.g. "3:1") -> (winner points, loser points).
     points: dict[str, tuple[int, int]]
     tiebreakers: list[str]
+    # Score of every set awarded in a walkover (winner, loser), e.g. (25, 0) gives 3:0, 75:0.
+    walkover_set: tuple[int, int]
 
     @model_validator(mode="after")
     def _check_consistency(self) -> "RuleSet":
@@ -25,4 +27,7 @@ class RuleSet(BaseModel):
         unknown = [name for name in self.tiebreakers if name not in TIEBREAKERS]
         if unknown:
             raise ValueError(f"unknown tiebreakers: {unknown}")
+        winner, loser = self.walkover_set
+        if not winner > loser >= 0:
+            raise ValueError("walkover_set must be (winner, loser) with winner > loser >= 0")
         return self

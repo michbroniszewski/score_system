@@ -100,7 +100,7 @@ points:                        # [winner, loser] points by set result
   "3:0": [3, 0]
   "3:1": [3, 0]
   "3:2": [2, 1]
-walkover: {sets: "3:0", small_points: "75:0"}
+walkover_set: [25, 0]          # every set of a walkover: 3:0, small points 75:0
 tiebreakers: [points, set_ratio, small_points_ratio]
 stats:
   - {code: points_scored, level: player, aggregate: sum}
