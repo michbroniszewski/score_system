@@ -1,0 +1,9 @@
+# Volleyball, round robin. Validated by score_system.domain.rules.RuleSet.
+discipline: volleyball
+result_format: sets
+sets_to_win: 3                 # best of five
+points:                        # set result (winner:loser) -> [winner points, loser points]
+  "3:0": [3, 0]
+  "3:1": [3, 0]
+  "3:2": [2, 1]
+tiebreakers: [points, set_ratio, small_points_ratio]

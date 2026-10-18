@@ -101,7 +101,7 @@ points:                        # [winner, loser] points by set result
   "3:1": [3, 0]
   "3:2": [2, 1]
 walkover: {sets: "3:0", small_points: "75:0"}
-tiebreakers: [points, wins, set_ratio, small_points_ratio]
+tiebreakers: [points, set_ratio, small_points_ratio]
 stats:
   - {code: points_scored, level: player, aggregate: sum}
   - {code: aces, level: player, aggregate: sum}
@@ -183,7 +183,7 @@ Each stage ends with a working, tested increment. Commits and pushes only with t
 | # | Stage | Contents | Outcome |
 |---|---|---|---|
 | 0 | Foundation | repo structure, uv, ruff, mypy, pytest, pre-commit, `Makefile`, Docker Compose (`db` + `api` with a `/health` endpoint), Vue skeleton, `ci.yml` | `make up` works locally, CI green |
-| 1 | Core: rules and standings | domain models, RuleSet + volleyball preset, `compute_standings` (3/2/1/0; points, wins, set ratio, small-points ratio), tests (incl. hypothesis) | volleyball standings computed from a list of matches |
+| 1 | Core: rules and standings | domain models, RuleSet + volleyball preset, `compute_standings` (3/2/1/0; points, set ratio, small-points ratio), tests (incl. hypothesis) | volleyball standings computed from a list of matches |
 | 2 | Fixtures | round robin generator (single and double), match model and statuses, postponements/walkovers | generated, editable fixtures (in the core) |
 | 3 | Persistence | SQLAlchemy + Alembic + Postgres in Docker, repositories, sample data (`make seed`) | data stored locally |
 | 4 | API v1 | CRUD: disciplines, competitions, teams, rosters, players, matches, results, events; standings and statistics endpoints; OpenAPI snapshot | full API locally (Swagger UI) |
@@ -235,5 +235,5 @@ Also useful: plan mode before each stage, the `Plan` subagent for larger changes
 - **D5.** uv + Docker Compose (also to learn Docker).
 - **D6.** First discipline: volleyball, round robin.
 - **D7.** Database: PostgreSQL in Docker.
-- **D8.** Volleyball scoring: 3:0 and 3:1 = 3 pts, 3:2 = 2 pts, 2:3 = 1 pt, 1:3 and 0:3 = 0 pts; tiebreakers: points, wins, set ratio, small-points ratio (for now, open to change).
+- **D8.** Volleyball scoring: 3:0 and 3:1 = 3 pts, 3:2 = 2 pts, 2:3 = 1 pt, 1:3 and 0:3 = 0 pts; tiebreakers: points, set ratio, small-points ratio (for now, may be extended later; revised 2026-10-18).
 - **D9.** Project language: English for everything in the repository (code, identifiers, comments, docs, commits).

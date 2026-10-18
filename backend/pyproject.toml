@@ -5,6 +5,8 @@ description = "Universal amateur league and tournament system (API and domain co
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.146.0",
+    "pydantic>=2.14.1",
+    "pyyaml>=6.0.3",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -15,11 +17,13 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "httpx2>=2.14.0",
+    "hypothesis>=6.170.1",
     "mypy>=2.4.0",
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.1",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.ruff]
