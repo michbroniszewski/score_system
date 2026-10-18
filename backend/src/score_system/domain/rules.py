@@ -18,6 +18,8 @@ class RuleSet(BaseModel):
     tiebreakers: list[str]
     # Score of every set awarded in a walkover (winner, loser), e.g. (25, 0) gives 3:0, 75:0.
     walkover_set: tuple[int, int]
+    # Player statistics recorded as match events, each summed per player, e.g. "aces".
+    stats: list[str] = []
 
     @model_validator(mode="after")
     def _check_consistency(self) -> "RuleSet":
@@ -30,4 +32,6 @@ class RuleSet(BaseModel):
         winner, loser = self.walkover_set
         if not winner > loser >= 0:
             raise ValueError("walkover_set must be (winner, loser) with winner > loser >= 0")
+        if len(set(self.stats)) != len(self.stats):
+            raise ValueError("stats must not repeat")
         return self
