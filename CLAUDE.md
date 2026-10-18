@@ -47,12 +47,17 @@ Principles that are easy to trip over:
 
 ## Commands
 
-The repository is still at the planning stage; the commands below will be added in stage 0. Once they exist, update this section to match the `Makefile`.
+Lint and tests run on the host (uv for the backend, npm for the frontend), with the same steps as CI. `make help` lists all targets.
 
-- `make up` / `make down` / `make logs`: start, stop and follow the Docker Compose environment (`db`, `api`, `frontend`).
-- `make test`: all tests (same steps as CI).
-- `make lint`: `ruff check`, `ruff format --check`, `mypy`, frontend lint.
-- `make migrate`, `make seed`, `make export`.
-- Single backend test: `uv run pytest backend/tests/path/test_file.py::test_name`.
+- `make install`: install backend (`uv sync`) and frontend (`npm ci`) dependencies.
+- `make up` / `make down` / `make logs`: start, stop and follow the Docker Compose environment (`db`, `api`, `frontend`, plus `adminer` from `compose.override.yaml`).
+- `make lint`: `ruff check`, `ruff format --check`, `mypy` (strict), `eslint`, `vue-tsc`.
+- `make format`: auto-fix and format the backend with ruff.
+- `make test`: backend `pytest --cov` and frontend `vitest`.
+- Single backend test: `cd backend && uv run pytest tests/test_file.py::test_name`.
+- Single frontend test: `cd frontend && npx vitest run src/path/file.spec.ts`.
+- Planned in later stages: `make migrate`, `make seed`, `make export`.
 
-Domain tests run without a database; integration and API tests need PostgreSQL (a container locally, a service container in CI).
+The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and build, and `docker compose build`.
+
+Domain tests run without a database; integration and API tests will need PostgreSQL (a container locally, a service container in CI) once persistence arrives in stage 3.

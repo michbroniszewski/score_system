@@ -1,0 +1,19 @@
+# Development overrides, merged into compose.yaml automatically by
+# `docker compose up`. Ignored when files are passed explicitly with -f.
+
+services:
+  api:
+    # Mount the source code into the container and let uvicorn reload on
+    # every change, so there is no need to rebuild the image while coding.
+    volumes:
+      - ./backend/src:/app/src
+    command: ["uvicorn", "score_system.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src"]
+
+  # Adminer: a small web UI for browsing the database at http://localhost:8080
+  # (system: PostgreSQL, server: db, credentials from .env).
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
