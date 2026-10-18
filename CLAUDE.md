@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A universal system for running competitions (amateur league, tournament, any format), configurable per discipline, regulations and scoring rules. Scope: teams with rosters, statistics and details; standings computed automatically; an editable fixture schedule. Browser first, a mobile app later.
 
-The full architecture and stage plan lives in the "Score system" Claude project at `/mnt/project-files/plan/plan-architektury.md`.
+The full architecture and stage plan lives in `docs/architecture.md`.
 
 ## Architecture decisions
 
