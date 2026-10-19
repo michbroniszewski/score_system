@@ -41,7 +41,9 @@ from score_system.infrastructure.presets import preset_names
 from score_system.infrastructure.repository import Repository
 
 router = APIRouter(prefix="/api/v1")
-Repo = Annotated[Repository, Depends(get_repo)]
+# scope="function": the transaction ends (commits) before the response is sent, so a client
+# never gets a success for data that is not stored yet, or not stored at all.
+Repo = Annotated[Repository, Depends(get_repo, scope="function")]
 
 
 @router.get("/health")
@@ -111,7 +113,7 @@ def list_competitions(repo: Repo) -> list[CompetitionOut]:
 
 @router.post("/competitions", status_code=status.HTTP_201_CREATED)
 def create_competition(body: CompetitionIn, repo: Repo) -> CompetitionOut:
-    row = services.create_competition(repo, body.slug, body.name, body.preset)
+    row = services.create_competition(repo, body.slug, body.name, body.preset, body.timezone)
     return CompetitionOut.model_validate(row)
 
 

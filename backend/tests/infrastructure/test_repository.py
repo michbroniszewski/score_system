@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -98,3 +99,26 @@ def test_names_are_unique(repo: Repository, add: Callable[[Repository, str], UUI
     add(repo, "Eagles")
     with pytest.raises(IntegrityError):
         add(repo, "Eagles")
+
+
+def test_match_start_is_read_in_utc(repo: Repository, session: Session) -> None:
+    competition_id = repo.add_competition("league", "League", "volleyball")
+    home, away = (str(repo.add_team(name)) for name in ["A", "B"])
+    friday = datetime(2026, 11, 6, 19, 0, tzinfo=UTC)
+    repo.save_match(competition_id, reschedule(Match(1, home, away), friday))
+    session.execute(text("SET TIME ZONE 'Europe/Warsaw'"))
+    session.expire_all()
+
+    (stored,) = repo.matches(competition_id)
+
+    assert stored.starts_at == friday and stored.starts_at.tzinfo is UTC
+
+
+def test_a_match_cannot_move_to_another_competition(repo: Repository) -> None:
+    league = repo.add_competition("league", "League", "volleyball")
+    cup = repo.add_competition("cup", "Cup", "volleyball")
+    home, away = (str(repo.add_team(name)) for name in ["A", "B"])
+    stored = repo.save_match(league, Match(1, home, away))
+
+    with pytest.raises(ValueError, match="another competition"):
+        repo.save_match(cup, stored)

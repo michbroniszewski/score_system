@@ -1,13 +1,15 @@
 """Use cases: what the API (and later other clients) can do, on top of the repository.
 
-Domain rules raise ValueError subclasses; this layer adds NotFoundError and ConflictError.
+Rejected requests raise DomainError (as the domain rules do), NotFoundError or ConflictError.
 """
 
 from collections.abc import Callable, Mapping
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
+from score_system.domain.errors import DomainError
 from score_system.domain.fixtures import round_robin
 from score_system.domain.matches import standings_results
 from score_system.domain.models import Match, MatchStatus, StandingRow, StatEvent
@@ -43,12 +45,14 @@ def competition(repo: Repository, slug: str) -> CompetitionRow:
     return row
 
 
-def create_competition(repo: Repository, slug: str, name: str, preset: str) -> CompetitionRow:
+def create_competition(
+    repo: Repository, slug: str, name: str, preset: str, timezone: str
+) -> CompetitionRow:
     if preset not in preset_names():
-        raise ValueError(f"unknown preset {preset!r}, available: {preset_names()}")
+        raise DomainError(f"unknown preset {preset!r}, available: {preset_names()}")
     if repo.competition_by_slug(slug) is not None:
         raise ConflictError(f"competition {slug!r} already exists")
-    repo.add_competition(slug, name, preset)
+    repo.add_competition(slug, name, preset, timezone)
     return competition(repo, slug)
 
 
@@ -108,6 +112,7 @@ def team_in_competition(repo: Repository, slug: str, team_id: UUID) -> Competiti
 
 def enter_team(repo: Repository, slug: str, team_id: UUID) -> None:
     comp = competition(repo, slug)
+    repo.lock_competition(comp.id)
     team(repo, team_id)
     if any(t.id == team_id for t in repo.competition_teams(comp.id)):
         raise ConflictError("the team is already entered")
@@ -118,6 +123,7 @@ def enter_team(repo: Repository, slug: str, team_id: UUID) -> None:
 
 def generate_fixtures(repo: Repository, slug: str, double: bool) -> list[Match]:
     comp = competition(repo, slug)
+    repo.lock_competition(comp.id)
     if repo.matches(comp.id):
         raise ConflictError("fixtures already exist")
     team_ids = [str(t.id) for t in repo.competition_teams(comp.id)]
@@ -185,8 +191,10 @@ def join_roster(
     entries = [e for e, _ in repo.roster_entries(comp.id) if e.player_id == player_id]
     if any(e.left_on is None for e in entries):
         raise ConflictError("the player is already in a roster of this competition; leave it first")
+    if entries and joined_on is None:
+        raise DomainError("joined_on is required when the player was in a roster before")
     if joined_on is not None and any(e.left_on and joined_on < e.left_on for e in entries):
-        raise ValueError("joined_on must not be before the day the player left a previous roster")
+        raise DomainError("joined_on must not be before the day the player left a previous roster")
     return repo.add_roster_entry(comp.id, team_id, player_id, number, position, joined_on)
 
 
@@ -198,7 +206,11 @@ def leave_roster(repo: Repository, entry_id: UUID, left_on: date) -> RosterEntry
     if entry.left_on is not None:
         raise ConflictError("the player has already left this roster")
     if entry.joined_on is not None and left_on < entry.joined_on:
-        raise ValueError("left_on must not be before joined_on")
+        raise DomainError("left_on must not be before joined_on")
+    comp = repo.session.get_one(CompetitionRow, entry.competition_id)
+    starts = repo.event_match_starts(entry.competition_id, entry.team_id, entry.player_id)
+    if any(_day(start, comp) > left_on for start in starts if start is not None):
+        raise DomainError("the player has statistics for this team in matches after left_on")
     entry.left_on = left_on
     repo.session.flush()
     return entry
@@ -211,15 +223,20 @@ def add_event(
     if stored.status != MatchStatus.PLAYED:
         raise ConflictError("statistics can only be recorded for a played match")
     if str(team_id) not in (stored.home, stored.away):
-        raise ValueError("the team does not play in this match")
+        raise DomainError("the team does not play in this match")
     if stat not in load_preset(comp.preset).stats:
-        raise ValueError(f"unknown statistic {stat!r}")
+        raise DomainError(f"unknown statistic {stat!r}")
     # The player must be in the roster on the match day (or now, for a match without a date).
-    day = stored.starts_at.date() if stored.starts_at else None
+    day = _day(stored.starts_at, comp) if stored.starts_at else None
     entries = [e for e, _ in repo.roster_entries(comp.id, team_id) if e.player_id == player_id]
     if not any(_in_roster_on(e, day) for e in entries):
-        raise ValueError("the player is not in this team's roster for this match")
+        raise DomainError("the player is not in this team's roster for this match")
     return repo.add_event(match_id, team_id, player_id, stat, value)
+
+
+def _day(moment: datetime, comp: CompetitionRow) -> date:
+    """The date of `moment` in the competition's time zone."""
+    return moment.astimezone(ZoneInfo(comp.timezone)).date()
 
 
 def _in_roster_on(entry: RosterEntryRow, day: date | None) -> bool:

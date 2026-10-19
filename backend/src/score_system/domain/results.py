@@ -1,10 +1,11 @@
 from collections.abc import Sequence
 
+from score_system.domain.errors import DomainError
 from score_system.domain.models import SetScore
 from score_system.domain.rules import RuleSet
 
 
-class InvalidResultError(ValueError):
+class InvalidResultError(DomainError):
     pass
 
 

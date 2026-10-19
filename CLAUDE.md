@@ -43,7 +43,7 @@ Principles that are easy to trip over:
 
 - **API-first for mobile.** API v1 is the only client contract; the static JSON export uses exactly the same format as the API responses, so the Pages frontend and the future mobile app read data identically. An OpenAPI schema snapshot is kept in the repo; changing it is a deliberate decision.
 - **Universality through configuration.** Discipline rules are YAML presets in `backend/presets/` (validated with Pydantic). Tiebreakers are a list of pluggable strategies. A new discipline means a new preset and, if needed, one new strategy, with no changes elsewhere.
-- Dates in UTC (ISO 8601), stable identifiers (UUID/slug), authentication planned as tokens (not cookie sessions).
+- Dates in UTC (ISO 8601); each competition has a `timezone` (default `Europe/Warsaw`) that decides a match's day. Stable identifiers (UUID/slug), authentication planned as tokens (not cookie sessions).
 
 ## Commands
 
@@ -63,6 +63,6 @@ Lint and tests run on the host (uv for the backend, npm for the frontend), with 
 
 The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and build, and `docker compose build`.
 
-Request flow: `api/routes.py` (thin, builds responses) → `application/services.py` (use cases; raises `NotFoundError` → 404, `ConflictError` → 409) → `infrastructure/repository.py` + `domain/`. Domain `InvalidTransitionError` maps to 409 and other `ValueError`s to 422 (`api/main.py`). Each request is one transaction (`api/deps.py`).
+Request flow: `api/routes.py` (thin, builds responses) → `application/services.py` (use cases; raises `NotFoundError` → 404, `ConflictError` → 409) → `infrastructure/repository.py` + `domain/`. Rejected input raises `DomainError` (`domain/errors.py`) → 422, except its subclass `InvalidTransitionError` → 409; any other exception, a plain `ValueError` included, is a bug → 500 (`api/main.py`). Each request is one transaction (`api/deps.py`), committed before the response is sent (`Depends(..., scope="function")`).
 
 Domain tests run without a database (`uv run pytest tests/domain`). Tests in `tests/infrastructure/` need PostgreSQL (the Compose `db` service locally, a service container in CI): they recreate the `score_system_test` database (`TEST_DATABASE_URL`), build the schema by running the migrations, and roll back each test.

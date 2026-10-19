@@ -51,7 +51,10 @@ def test_roster_keeps_history(client: TestClient, league: dict[str, Any]) -> Non
     post(client, f"/roster-entries/{entry['id']}/leave", {"left_on": "2026-08-01"}, 422)
     left = post(client, f"/roster-entries/{entry['id']}/leave", {"left_on": "2026-12-31"})
     post(client, f"/roster-entries/{entry['id']}/leave", {"left_on": "2026-12-31"}, 409)
-    post(client, roster_path(owls), {"player_id": player_id, "number": 10}, 201)
+    # A returning player needs a date, otherwise the entries could overlap.
+    post(client, roster_path(owls), {"player_id": player_id, "number": 10}, 422)
+    rejoin = {"player_id": player_id, "number": 10, "joined_on": "2026-12-31"}
+    post(client, roster_path(owls), rejoin, 201)
 
     assert left["left_on"] == "2026-12-31"
     assert get(client, roster_path(eagles)) == [left]

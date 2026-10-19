@@ -35,11 +35,16 @@ def test_presets(client: TestClient) -> None:
 
 def test_competition_validation(client: TestClient) -> None:
     body = {"slug": "league", "name": "League", "preset": "volleyball"}
-    assert post(client, "/competitions", body, 201) == body
+    stored = {**body, "timezone": "Europe/Warsaw"}
+    assert post(client, "/competitions", body, 201) == stored
     post(client, "/competitions", body, 409)
     post(client, "/competitions", {**body, "slug": "cup", "preset": "chess"}, 422)
     post(client, "/competitions", {**body, "slug": "Not a slug"}, 422)
-    assert get(client, "/competitions") == [body]
+    for timezone in ["Mars/Olympus", "../etc", ""]:
+        post(client, "/competitions", {**body, "slug": "cup", "timezone": timezone}, 422)
+    cup = {**body, "slug": "cup", "name": "Cup", "timezone": "UTC"}
+    assert post(client, "/competitions", cup, 201) == cup
+    assert get(client, "/competitions") == [cup, stored]
     get(client, "/competitions/missing", 404)
 
 

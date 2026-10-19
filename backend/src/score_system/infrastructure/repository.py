@@ -5,7 +5,7 @@ Converts match rows to domain objects and back.
 Team identifiers in domain objects are the team UUIDs as strings.
 """
 
-from datetime import date
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from score_system.domain.models import Match, MatchStatus, SetScore
 from score_system.infrastructure.orm import (
+    DEFAULT_TIMEZONE,
     ClubRow,
     CompetitionRow,
     MatchEventRow,
@@ -30,8 +31,10 @@ class Repository:
 
     # --- competitions ---------------------------------------------------------
 
-    def add_competition(self, slug: str, name: str, preset: str) -> UUID:
-        row = CompetitionRow(slug=slug, name=name, preset=preset)
+    def add_competition(
+        self, slug: str, name: str, preset: str, timezone: str = DEFAULT_TIMEZONE
+    ) -> UUID:
+        row = CompetitionRow(slug=slug, name=name, preset=preset, timezone=timezone)
         self.session.add(row)
         self.session.flush()
         return row.id
@@ -40,6 +43,15 @@ class Repository:
         return self.session.scalars(
             select(CompetitionRow).where(CompetitionRow.slug == slug)
         ).one_or_none()
+
+    def lock_competition(self, competition_id: UUID) -> None:
+        """Lock the competition row until the end of the transaction.
+
+        Serialises changes to a competition's teams and fixtures between concurrent requests.
+        """
+        self.session.execute(
+            select(CompetitionRow.id).where(CompetitionRow.id == competition_id).with_for_update()
+        )
 
     def competitions(self) -> list[CompetitionRow]:
         return list(self.session.scalars(select(CompetitionRow).order_by(CompetitionRow.name)))
@@ -177,8 +189,33 @@ class Repository:
         self.session.flush()
 
     def events(self, match_id: UUID) -> list[MatchEventRow]:
+        """Events of a match by player name, then statistic (a stable order for the export)."""
         return list(
-            self.session.scalars(select(MatchEventRow).where(MatchEventRow.match_id == match_id))
+            self.session.scalars(
+                select(MatchEventRow)
+                .join(PlayerRow, PlayerRow.id == MatchEventRow.player_id)
+                .where(MatchEventRow.match_id == match_id)
+                .order_by(
+                    PlayerRow.last_name, PlayerRow.first_name, MatchEventRow.stat, MatchEventRow.id
+                )
+            )
+        )
+
+    def event_match_starts(
+        self, competition_id: UUID, team_id: UUID, player_id: UUID
+    ) -> list[datetime | None]:
+        """Start times of the competition's matches where the player has events for the team."""
+        return list(
+            self.session.scalars(
+                select(MatchRow.starts_at)
+                .join(MatchEventRow, MatchEventRow.match_id == MatchRow.id)
+                .where(
+                    MatchRow.competition_id == competition_id,
+                    MatchEventRow.team_id == team_id,
+                    MatchEventRow.player_id == player_id,
+                )
+                .distinct()
+            )
         )
 
     def competition_events(
@@ -203,6 +240,8 @@ class Repository:
             self.session.add(row)
         else:
             row = self.session.get_one(MatchRow, match.id)
+            if row.competition_id != competition_id:
+                raise ValueError(f"match {match.id} belongs to another competition")
         row.round = match.round
         row.home_team_id = UUID(match.home)
         row.away_team_id = UUID(match.away)
@@ -235,7 +274,8 @@ def _to_match(row: MatchRow) -> Match:
         home=str(row.home_team_id),
         away=str(row.away_team_id),
         status=MatchStatus(row.status),
-        starts_at=row.starts_at,
+        # psycopg returns datetimes in the database session's time zone; the domain uses UTC.
+        starts_at=row.starts_at.astimezone(UTC) if row.starts_at else None,
         venue=row.venue,
         sets=tuple(SetScore(home, away) for home, away in row.sets),
         walkover_winner=str(row.walkover_winner_id) if row.walkover_winner_id else None,

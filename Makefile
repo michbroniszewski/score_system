@@ -2,6 +2,10 @@
 # Lint and tests run on the host (uv + npm), the same steps as CI.
 # migrate and seed run inside the api container.
 
+# Host ports from .env (if present); pytest uses DB_PORT to reach the test database.
+-include .env
+export DB_PORT
+
 .PHONY: help install up down logs migrate seed openapi lint format test
 
 help:

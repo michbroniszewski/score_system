@@ -3,15 +3,23 @@
 from datetime import date
 from typing import Self
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from score_system.domain.models import MatchStatus
+from score_system.infrastructure.orm import DEFAULT_TIMEZONE
 
 Name = Field(min_length=1, max_length=200)
 
 
-class ClubIn(BaseModel):
+class Input(BaseModel):
+    """Base of request bodies: leading and trailing spaces are dropped from strings."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class ClubIn(Input):
     name: str = Name
 
 
@@ -31,14 +39,14 @@ class ClubDetail(ClubOut):
     teams: list[TeamRef]
 
 
-class TeamIn(BaseModel):
+class TeamIn(Input):
     name: str = Name
     short_name: str | None = Field(default=None, max_length=20)
     club_id: UUID | None = None
     saved: bool = Field(default=False, description="Keep the team in the general base.")
 
 
-class TeamPatch(BaseModel):
+class TeamPatch(Input):
     """Only the fields sent are changed; null clears short_name or club_id."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
@@ -62,10 +70,24 @@ class TeamOut(BaseModel):
     saved: bool
 
 
-class CompetitionIn(BaseModel):
+class CompetitionIn(Input):
     slug: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=100)
     name: str = Name
     preset: str
+    timezone: str = Field(
+        default=DEFAULT_TIMEZONE,
+        max_length=64,
+        description="IANA time zone; a match's day (for rosters) is its date in this zone.",
+    )
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError(f"unknown time zone {value!r}") from None
+        return value
 
 
 class CompetitionOut(BaseModel):
@@ -74,9 +96,10 @@ class CompetitionOut(BaseModel):
     slug: str
     name: str
     preset: str
+    timezone: str
 
 
-class EntryIn(BaseModel):
+class EntryIn(Input):
     """Enter an existing team (`team_id`) or create a new one (`team`)."""
 
     team_id: UUID | None = None
@@ -89,11 +112,11 @@ class EntryIn(BaseModel):
         return self
 
 
-class FixturesIn(BaseModel):
+class FixturesIn(Input):
     double: bool = Field(default=False, description="Second leg with home and away swapped.")
 
 
-class SetIn(BaseModel):
+class SetIn(Input):
     home: int = Field(ge=0)
     away: int = Field(ge=0)
 
@@ -115,16 +138,16 @@ class MatchOut(BaseModel):
     walkover_winner: UUID | None
 
 
-class RescheduleIn(BaseModel):
+class RescheduleIn(Input):
     starts_at: AwareDatetime
     venue: str | None = Field(default=None, max_length=200)
 
 
-class ResultIn(BaseModel):
+class ResultIn(Input):
     sets: list[SetIn] = Field(min_length=1)
 
 
-class WalkoverIn(BaseModel):
+class WalkoverIn(Input):
     winner: UUID
 
 
@@ -141,12 +164,12 @@ class StandingOut(BaseModel):
     small_points_lost: int
 
 
-class PlayerIn(BaseModel):
+class PlayerIn(Input):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
 
 
-class PlayerPatch(BaseModel):
+class PlayerPatch(Input):
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
 
@@ -169,7 +192,7 @@ class PlayerRef(BaseModel):
     name: str
 
 
-class RosterIn(BaseModel):
+class RosterIn(Input):
     """Add an existing player (`player_id`) or a new one (`player`) to a team's roster."""
 
     player_id: UUID | None = None
@@ -195,15 +218,15 @@ class RosterEntryOut(BaseModel):
     left_on: date | None = Field(description="Empty while the player is in the roster.")
 
 
-class LeaveIn(BaseModel):
+class LeaveIn(Input):
     left_on: date
 
 
-class EventIn(BaseModel):
+class EventIn(Input):
     team_id: UUID
     player_id: UUID
     stat: str = Field(description="A statistic of the competition's preset, e.g. aces.")
-    value: int = Field(default=1, ge=1)
+    value: int = Field(default=1, ge=1, le=1000)
 
 
 class EventOut(BaseModel):
