@@ -55,7 +55,7 @@ def seed(session: Session) -> bool:
         for number, position in [(1, "setter"), (7, "outside hitter")]:
             player_id = repo.add_player(name, f"Player {number}")
             repo.add_roster_entry(competition_id, team_id, player_id, number, position, None)
-            players[team_id] = [*players.get(team_id, []), player_id]
+            players.setdefault(team_id, []).append(player_id)
 
     # Rounds 1-2 are played (one match of round 2 as a walkover), the rest is scheduled
     # weekly on Friday evenings.

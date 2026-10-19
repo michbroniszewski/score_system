@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from hypothesis import settings
 from sqlalchemy import Connection, Engine, make_url, text
 from sqlalchemy.orm import Session
 
@@ -22,6 +23,18 @@ from score_system.infrastructure.db import make_engine
 from score_system.infrastructure.presets import load_ruleset
 
 PRESETS = Path(__file__).parent.parent / "presets"
+
+# CI runs property-based tests with a fixed seed (HYPOTHESIS_PROFILE=ci), so a run can be
+# repeated; locally every run explores new examples.
+settings.register_profile("ci", derandomize=True)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Mark every test that uses the database, so `pytest -m "not db"` skips them."""
+    for item in items:
+        if "engine" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.db)
 
 
 @pytest.fixture

@@ -43,10 +43,7 @@ def _add_match(tallies: dict[str, _Tally], match: MatchResult, ruleset: RuleSet)
             raise InvalidResultError(f"unknown team {team!r}")
     if match.home == match.away:
         raise InvalidResultError(f"team {match.home!r} cannot play itself")
-    validate_sets(match.sets, ruleset)
-
-    home_sets = sum(1 for s in match.sets if s.home > s.away)
-    away_sets = len(match.sets) - home_sets
+    home_sets, away_sets = validate_sets(match.sets, ruleset)
     home_won = home_sets > away_sets
     winner_sets, loser_sets = (home_sets, away_sets) if home_won else (away_sets, home_sets)
     winner_points, loser_points = ruleset.points[f"{winner_sets}:{loser_sets}"]

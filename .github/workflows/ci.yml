@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# A new push to a pull request cancels its older, still running checks.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -24,7 +29,11 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
+      # alembic check runs against this database; the tests use their own.
+      DATABASE_URL: postgresql+psycopg://score:score@localhost:5432/score_system
       TEST_DATABASE_URL: postgresql+psycopg://score:score@localhost:5432/score_system_test
+      # Property-based tests with a fixed seed, so a failure can be repeated.
+      HYPOTHESIS_PROFILE: ci
     defaults:
       run:
         working-directory: backend
@@ -37,7 +46,11 @@ jobs:
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run mypy
+      - name: Models match the migrations
+        run: uv run alembic upgrade head && uv run alembic check
       - run: uv run pytest --cov=score_system
+      - name: Domain coverage
+        run: uv run coverage report --include="src/score_system/domain/*" --fail-under=85
 
   frontend:
     runs-on: ubuntu-latest
@@ -53,13 +66,41 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
-      - run: npm run typecheck
       - run: npm test
+      # The build also type-checks (vue-tsc), so there is no separate typecheck step.
       - run: npm run build
 
   docker:
     runs-on: ubuntu-latest
+    env:
+      # Image names are <project>-<service>; pin the project so the built image is found.
+      COMPOSE_PROJECT_NAME: score_system
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Build the api image from compose.yaml with the layer cache kept in GitHub Actions,
+      # so unchanged layers (e.g. the dependencies) are not rebuilt on every run.
       - name: Build images
-        run: docker compose -f compose.yaml build
+        uses: docker/bake-action@v6
+        with:
+          source: .
+          files: compose.yaml
+          load: true
+          set: |
+            api.tags=score_system-api
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max
+      # Smoke test: the image starts, migrates, seeds and answers requests.
+      - name: Start database and API
+        run: docker compose -f compose.yaml up -d --no-build --wait db api
+      - name: Migrate and seed
+        run: |
+          docker compose -f compose.yaml exec -T api alembic upgrade head
+          docker compose -f compose.yaml exec -T api score seed
+      - name: Query the API
+        run: |
+          curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8000/api/v1/health
+          curl -fsS http://localhost:8000/api/v1/competitions/sample-volleyball-league/standings
+      - name: API logs
+        if: failure()
+        run: docker compose -f compose.yaml logs api

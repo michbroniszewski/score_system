@@ -49,19 +49,20 @@ Principles that are easy to trip over:
 
 Lint and tests run on the host (uv for the backend, npm for the frontend), with the same steps as CI. `make help` lists all targets.
 
-- `make install`: install backend (`uv sync`) and frontend (`npm ci`) dependencies.
+- `make install`: install backend (`uv sync --locked`) and frontend (`npm ci`) dependencies.
 - `make up` / `make down` / `make logs`: start, stop and follow the Docker Compose environment (`db`, `api`, `frontend`, plus `adminer` from `compose.override.yaml`).
 - `make migrate` / `make seed`: apply Alembic migrations / load the sample league (`score seed`), both inside the `api` container.
 - `make openapi`: regenerate the API schema snapshot `backend/openapi.json`; `tests/api/test_openapi_snapshot.py` fails until the snapshot matches the code. Commit it only for an intended API change.
 - `make lint`: `ruff check`, `ruff format --check`, `mypy` (strict), `eslint`, `vue-tsc`.
 - `make format`: auto-fix and format the backend with ruff.
-- `make test`: starts the `db` container, then backend `pytest --cov` and frontend `vitest`.
+- `make test`: starts the `db` container, then backend `pytest --cov` (`domain/` coverage must stay at 85% or more) and frontend `vitest`.
+- `make test-unit`: only the tests that need no database (no Docker); database tests get the `db` marker automatically.
 - Single backend test: `cd backend && uv run pytest tests/test_file.py::test_name`.
 - Single frontend test: `cd frontend && npx vitest run src/path/file.spec.ts`.
 - New migration: `cd backend && uv run alembic revision --autogenerate -m "..."` (db running), then review it.
 - Planned in later stages: `make export`.
 
-The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and build, and `docker compose build`.
+The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks (plus `alembic check` and hypothesis with a fixed seed, `HYPOTHESIS_PROFILE=ci`), the frontend checks and build, and a Docker smoke test (build with layer cache, migrate, seed, query the API).
 
 Request flow: `api/routes.py` (thin, builds responses) → `application/services.py` (use cases; raises `NotFoundError` → 404, `ConflictError` → 409) → `infrastructure/repository.py` + `domain/`. Rejected input raises `DomainError` (`domain/errors.py`) → 422, except its subclass `InvalidTransitionError` → 409; any other exception, a plain `ValueError` included, is a bug → 500 (`api/main.py`). Each request is one transaction (`api/deps.py`), committed before the response is sent (`Depends(..., scope="function")`).
 

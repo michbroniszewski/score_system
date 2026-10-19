@@ -47,3 +47,4 @@ files = ["src", "tests"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers"
+markers = ["db: needs PostgreSQL (added automatically to tests using the database)"]
