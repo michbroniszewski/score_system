@@ -1,3 +1,4 @@
+from functools import cache
 from pathlib import Path
 
 import yaml
@@ -13,9 +14,12 @@ def load_ruleset(path: Path) -> RuleSet:
 PRESETS_DIR = Path(__file__).resolve().parents[3] / "presets"
 
 
+# Presets are read once per process (RuleSet is immutable); restart the API after editing one.
+@cache
 def load_preset(name: str) -> RuleSet:
     return load_ruleset(PRESETS_DIR / f"{name}.yaml")
 
 
-def preset_names() -> list[str]:
-    return sorted(path.stem for path in PRESETS_DIR.glob("*.yaml"))
+@cache
+def preset_names() -> tuple[str, ...]:
+    return tuple(sorted(path.stem for path in PRESETS_DIR.glob("*.yaml")))

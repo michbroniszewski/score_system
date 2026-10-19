@@ -5,10 +5,11 @@ Converts match rows to domain objects and back.
 Team identifiers in domain objects are the team UUIDs as strings.
 """
 
+from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from score_system.domain.models import Match, MatchStatus, SetScore
@@ -29,6 +30,10 @@ class Repository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def flush(self) -> None:
+        """Write pending changes to loaded rows (e.g. edited fields) to the database."""
+        self.session.flush()
+
     # --- competitions ---------------------------------------------------------
 
     def add_competition(
@@ -38,6 +43,9 @@ class Repository:
         self.session.add(row)
         self.session.flush()
         return row.id
+
+    def competition(self, competition_id: UUID) -> CompetitionRow:
+        return self.session.get_one(CompetitionRow, competition_id)
 
     def competition_by_slug(self, slug: str) -> CompetitionRow | None:
         return self.session.scalars(
@@ -109,6 +117,18 @@ class Repository:
             competition_teams.insert().values(competition_id=competition_id, team_id=team_id)
         )
 
+    def is_entered(self, competition_id: UUID, team_id: UUID) -> bool:
+        return bool(
+            self.session.scalar(
+                select(
+                    exists().where(
+                        competition_teams.c.competition_id == competition_id,
+                        competition_teams.c.team_id == team_id,
+                    )
+                )
+            )
+        )
+
     def competition_teams(self, competition_id: UUID) -> list[TeamRow]:
         """Teams of a competition, by name (this order also settles full ties in standings)."""
         return list(
@@ -155,6 +175,17 @@ class Repository:
     def roster_entry(self, entry_id: UUID) -> RosterEntryRow | None:
         return self.session.get(RosterEntryRow, entry_id)
 
+    def player_entries(
+        self, competition_id: UUID, player_id: UUID, team_id: UUID | None = None
+    ) -> list[RosterEntryRow]:
+        """The player's roster entries in a competition (in one team, if given)."""
+        query = select(RosterEntryRow).where(
+            RosterEntryRow.competition_id == competition_id, RosterEntryRow.player_id == player_id
+        )
+        if team_id is not None:
+            query = query.where(RosterEntryRow.team_id == team_id)
+        return list(self.session.scalars(query))
+
     def roster_entries(
         self, competition_id: UUID, team_id: UUID | None = None
     ) -> list[tuple[RosterEntryRow, PlayerRow]]:
@@ -188,18 +219,20 @@ class Repository:
         self.session.delete(row)
         self.session.flush()
 
-    def events(self, match_id: UUID) -> list[MatchEventRow]:
-        """Events of a match by player name, then statistic (a stable order for the export)."""
-        return list(
-            self.session.scalars(
-                select(MatchEventRow)
-                .join(PlayerRow, PlayerRow.id == MatchEventRow.player_id)
-                .where(MatchEventRow.match_id == match_id)
-                .order_by(
-                    PlayerRow.last_name, PlayerRow.first_name, MatchEventRow.stat, MatchEventRow.id
-                )
+    def events(self, match_id: UUID) -> list[tuple[MatchEventRow, PlayerRow]]:
+        """Events of a match with their players, by player name, then statistic.
+
+        The order is stable, so the export does not change between runs.
+        """
+        query = (
+            select(MatchEventRow, PlayerRow)
+            .join(PlayerRow, PlayerRow.id == MatchEventRow.player_id)
+            .where(MatchEventRow.match_id == match_id)
+            .order_by(
+                PlayerRow.last_name, PlayerRow.first_name, MatchEventRow.stat, MatchEventRow.id
             )
         )
+        return [(event, player) for event, player in self.session.execute(query)]
 
     def event_match_starts(
         self, competition_id: UUID, team_id: UUID, player_id: UUID
@@ -233,30 +266,33 @@ class Repository:
 
     # --- matches --------------------------------------------------------------
 
+    def add_matches(self, competition_id: UUID, matches: Iterable[Match]) -> None:
+        """Insert new matches (e.g. generated fixtures) with one flush."""
+        self.session.add_all(_new_row(competition_id, match) for match in matches)
+        self.session.flush()
+
+    def has_matches(self, competition_id: UUID) -> bool:
+        return bool(
+            self.session.scalar(select(exists().where(MatchRow.competition_id == competition_id)))
+        )
+
     def save_match(self, competition_id: UUID, match: Match) -> Match:
         """Insert a new match (id None) or update a stored one; returns it with its id."""
         if match.id is None:
-            row = MatchRow(competition_id=competition_id)
+            row = _new_row(competition_id, match)
             self.session.add(row)
         else:
             row = self.session.get_one(MatchRow, match.id)
             if row.competition_id != competition_id:
                 raise ValueError(f"match {match.id} belongs to another competition")
-        row.round = match.round
-        row.home_team_id = UUID(match.home)
-        row.away_team_id = UUID(match.away)
-        row.status = match.status.value
-        row.starts_at = match.starts_at
-        row.venue = match.venue
-        row.sets = [[s.home, s.away] for s in match.sets]
-        row.walkover_winner_id = UUID(match.walkover_winner) if match.walkover_winner else None
+            _set_fields(row, match)
         self.session.flush()
         return _to_match(row)
 
-    def match(self, match_id: UUID) -> tuple[UUID, Match] | None:
-        """A stored match with the id of its competition."""
+    def match(self, match_id: UUID) -> tuple[CompetitionRow, Match] | None:
+        """A stored match with its competition."""
         row = self.session.get(MatchRow, match_id)
-        return None if row is None else (row.competition_id, _to_match(row))
+        return None if row is None else (self.competition(row.competition_id), _to_match(row))
 
     def matches(self, competition_id: UUID) -> list[Match]:
         rows = self.session.scalars(
@@ -265,6 +301,23 @@ class Repository:
             .order_by(MatchRow.round, MatchRow.starts_at, MatchRow.id)
         )
         return [_to_match(row) for row in rows]
+
+
+def _new_row(competition_id: UUID, match: Match) -> MatchRow:
+    row = MatchRow(competition_id=competition_id)
+    _set_fields(row, match)
+    return row
+
+
+def _set_fields(row: MatchRow, match: Match) -> None:
+    row.round = match.round
+    row.home_team_id = UUID(match.home)
+    row.away_team_id = UUID(match.away)
+    row.status = match.status.value
+    row.starts_at = match.starts_at
+    row.venue = match.venue
+    row.sets = [[s.home, s.away] for s in match.sets]
+    row.walkover_winner_id = UUID(match.walkover_winner) if match.walkover_winner else None
 
 
 def _to_match(row: MatchRow) -> Match:

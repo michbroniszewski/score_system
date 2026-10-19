@@ -13,7 +13,7 @@ from score_system.domain.matches import (
     standings_results,
 )
 from score_system.domain.models import Match, MatchResult, MatchStatus, SetScore
-from score_system.domain.results import InvalidResultError
+from score_system.domain.results import InvalidResultError, validate_sets
 from score_system.domain.rules import RuleSet
 from score_system.domain.standings import compute_standings
 
@@ -115,3 +115,10 @@ def test_standings_results_counts_played_and_walkovers(volleyball: RuleSet) -> N
         75,
         75,
     )
+
+
+def test_validate_sets_returns_the_sets_won(volleyball: RuleSet) -> None:
+    sets = [SetScore(25, 20), SetScore(20, 25), SetScore(25, 20), SetScore(25, 23)]
+
+    assert validate_sets(sets, volleyball) == (3, 1)
+    assert validate_sets([SetScore(20, 25)] * 3, volleyball) == (0, 3)
