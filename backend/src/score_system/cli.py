@@ -2,12 +2,14 @@
 
 `score seed` loads a sample volleyball league into the database.
 `score openapi` prints the API v1 schema (the snapshot kept in backend/openapi.json).
+`score export` writes the static JSON snapshot of the public API (see api/export.py).
 """
 
 import argparse
 import json
 import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -86,10 +88,19 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("seed", help="load the sample volleyball league")
     commands.add_parser("openapi", help="print the OpenAPI schema as JSON")
+    export = commands.add_parser("export", help="write the static JSON snapshot")
+    export.add_argument("--out", type=Path, default=Path("data/export"), help="target directory")
     args = parser.parse_args()
 
     if args.command == "openapi":
         sys.stdout.write(openapi_json())
+        return
+    if args.command == "export":
+        from score_system.api.export import export as export_snapshot  # only this command
+
+        with Session(make_engine()) as session:
+            count = export_snapshot(Repository(session), args.out)
+        print(f"Wrote {count} files to {args.out / 'api' / 'v1'}.")
         return
     with Session(make_engine()) as session:
         if seed(session):

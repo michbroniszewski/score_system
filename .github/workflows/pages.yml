@@ -1,0 +1,57 @@
+name: Pages
+
+# Publishes the read-only site: the frontend build plus the JSON snapshot that
+# `make export` wrote to data/export/ and the owner committed.
+on:
+  push:
+    branches: [main]
+    paths: ["data/export/**", "frontend/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push waits instead of cancelling a running deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # The site lives at https://<owner>.github.io/<repo>/, so assets need that base path.
+      - run: npm run build -- --base=/${{ github.event.repository.name }}/
+      # The snapshot is served next to the site: <base>/api/v1/... .json
+      - name: Add the data snapshot
+        run: |
+          if [ -d ../data/export/api ]; then
+            cp -r ../data/export/api dist/api
+          else
+            echo "::warning::No data/export/ snapshot committed yet; publishing the site without data."
+          fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

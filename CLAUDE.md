@@ -60,7 +60,7 @@ Lint and tests run on the host (uv for the backend, npm for the frontend), with 
 - Single backend test: `cd backend && uv run pytest tests/test_file.py::test_name`.
 - Single frontend test: `cd frontend && npx vitest run src/path/file.spec.ts`.
 - New migration: `cd backend && uv run alembic revision --autogenerate -m "..."` (db running), then review it.
-- Planned in later stages: `make export`.
+- `make export`: write the static JSON snapshot of the public API to `data/export/api/v1/` (host run against the `db` container; `api/export.py` builds it from the route functions, and a test checks every file equals the API response). `.github/workflows/pages.yml` publishes the frontend build plus the snapshot on pushes to `main`.
 
 The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks (plus `alembic check` and hypothesis with a fixed seed, `HYPOTHESIS_PROFILE=ci`), the frontend checks and build, and a Docker smoke test (build with layer cache, migrate, seed, query the API).
 

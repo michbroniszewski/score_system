@@ -4,9 +4,13 @@
 
 # Host ports from .env (if present); pytest uses DB_PORT to reach the test database.
 -include .env
+DB_PORT ?= 5432
+POSTGRES_USER ?= score
+POSTGRES_PASSWORD ?= score
+POSTGRES_DB ?= score_system
 export DB_PORT
 
-.PHONY: help install up down logs migrate seed openapi lint format test test-unit
+.PHONY: help install up down logs migrate seed export openapi lint format test test-unit
 
 help:
 	@echo "install  install backend (uv) and frontend (npm) dependencies"
@@ -15,6 +19,7 @@ help:
 	@echo "logs     follow the logs of all services"
 	@echo "migrate  apply database migrations (after make up)"
 	@echo "seed     load the sample volleyball league (after make migrate)"
+	@echo "export   write the JSON snapshot for GitHub Pages to data/export/ (after make up)"
 	@echo "openapi  regenerate the API schema snapshot backend/openapi.json"
 	@echo "lint     ruff, mypy, eslint and vue-tsc"
 	@echo "format   auto-format the backend code with ruff"
@@ -39,6 +44,11 @@ migrate:
 
 seed:
 	docker compose exec api score seed
+
+# Runs on the host against the db container (its port from .env), so the files belong to you.
+export:
+	cd backend && DATABASE_URL=postgresql+psycopg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(DB_PORT)/$(POSTGRES_DB) \
+		uv run score export --out ../data/export
 
 # Written to a temporary file first, so a failure leaves the snapshot untouched.
 openapi:
