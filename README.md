@@ -29,6 +29,15 @@ In Swagger UI you can try the whole API: create a competition, enter teams, gene
 
 `make down` stops everything; database data stays in the `db-data` volume.
 
+## Publishing to GitHub Pages
+
+The database stays on your machine; only a read-only JSON snapshot is published.
+
+1. With `make up` running, `make export` writes the snapshot to `data/export/api/v1/`. Each file is the API response at the same path, e.g. `competitions/<slug>/standings.json` is `GET /api/v1/competitions/<slug>/standings`.
+2. Commit and push `data/export/` to `main`. The `Pages` workflow builds the frontend and publishes it with the snapshot at `https://<owner>.github.io/<repo>/` (data under `api/v1/`).
+
+Once per repository: in Settings → Pages, set the source to "GitHub Actions".
+
 ## Development
 
 ```sh
