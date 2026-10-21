@@ -33,7 +33,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       # The site lives at https://<owner>.github.io/<repo>/, so assets need that base path.
+      # VITE_STATIC_DATA: read the snapshot files instead of a live API.
       - run: npm run build -- --base=/${{ github.event.repository.name }}/
+        env:
+          VITE_STATIC_DATA: "true"
       # The snapshot is served next to the site: <base>/api/v1/... .json
       - name: Add the data snapshot
         run: |

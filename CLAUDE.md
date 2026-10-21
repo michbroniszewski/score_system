@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Never commit or push without Michal's explicit consent.** Prepare changes locally, show them (diff, test results) and wait for approval. Consent for one commit does not cover the next one.
 - **Ask, don't assume.** When a task can be read more than one way, present the options with a recommendation and ask.
 - **Tests from the start, CI kept up to date.** Every logic change comes with tests; when commands, dependencies or structure change, update `.github/workflows/` too.
-- **English is the project language.** Everything in the repository is written in English: code, identifiers, comments, docstrings, docs, commit messages and PR descriptions.
+- **English is the project language.** Everything in the repository is written in English: code, identifiers, comments, docstrings, docs, commit messages and PR descriptions. The one exception: the public site's user-facing texts are Polish (Michal, 2026-10-20).
 
 ## Coding guidelines (karpathy-guidelines)
 
@@ -63,6 +63,8 @@ Lint and tests run on the host (uv for the backend, npm for the frontend), with 
 - `make export`: write the static JSON snapshot of the public API to `data/export/api/v1/` (host run against the `db` container; `api/export.py` builds it from the route functions, and a test checks every file equals the API response). `.github/workflows/pages.yml` publishes the frontend build plus the snapshot on pushes to `main`.
 
 The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks (plus `alembic check` and hypothesis with a fixed seed, `HYPOTHESIS_PROFILE=ci`), the frontend checks and build, and a Docker smoke test (build with layer cache, migrate, seed, query the API).
+
+Frontend (`frontend/src/`): `api/client.ts` reads the live API in development (Vite proxies `/api`) and the static snapshot when built with `VITE_STATIC_DATA=true` (Pages); `api/types.ts` mirrors the response schemas and `api/types.spec.ts` checks them against `backend/openapi.json`; hash routing (`router.ts`) because Pages has no SPA fallback.
 
 Request flow: `api/routes.py` (thin, builds responses) → `application/services.py` (use cases; raises `NotFoundError` → 404, `ConflictError` → 409) → `infrastructure/repository.py` + `domain/`. Rejected input raises `DomainError` (`domain/errors.py`) → 422, except its subclass `InvalidTransitionError` → 409; any other exception, a plain `ValueError` included, is a bug → 500 (`api/main.py`). Each request is one transaction (`api/deps.py`), committed before the response is sent (`Depends(..., scope="function")`).
 

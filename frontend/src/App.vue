@@ -1,5 +1,13 @@
 <template>
-  <main>
-    <h1>Score System</h1>
+  <header class="site-header">
+    <RouterLink
+      to="/"
+      class="brand"
+    >
+      Score System
+    </RouterLink>
+  </header>
+  <main class="page">
+    <RouterView />
   </main>
 </template>

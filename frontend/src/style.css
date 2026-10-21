@@ -1,0 +1,117 @@
+:root {
+  --text: #1d2330;
+  --muted: #5b6475;
+  --line: #dde1e8;
+  --accent: #1f5fbf;
+  --surface: #f5f7fa;
+  font-family: system-ui, sans-serif;
+  color: var(--text);
+  background: #fff;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.site-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.page {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs a {
+  padding: 0.5rem 0;
+  color: var(--muted);
+}
+
+.tabs a.router-link-exact-active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+/* Wide tables scroll sideways on phones instead of widening the page. */
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.left {
+  text-align: left;
+}
+
+.strong {
+  font-weight: 700;
+}
+
+.cards,
+.matches,
+.sets {
+  list-style: none;
+  padding: 0;
+}
+
+.cards li,
+.matches li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.matches a {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.matches .score {
+  font-weight: 700;
+}
+
+.meta,
+.notice {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  color: #b42318;
+}

@@ -22,7 +22,7 @@ Then open:
 
 - API health check: http://localhost:8000/api/v1/health
 - API docs (Swagger UI): http://localhost:8000/docs
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:5173 (the public site, reading the local API)
 - Adminer (database browser): http://localhost:8080 (system PostgreSQL, server `db`)
 
 In Swagger UI you can try the whole API: create a competition, enter teams, generate fixtures, record results and read the standings. After `make seed`, see for example `GET /api/v1/competitions/sample-volleyball-league/standings`.
