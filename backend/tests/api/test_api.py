@@ -18,6 +18,13 @@ def league(client: TestClient) -> list[dict[str, Any]]:
 
 def test_presets(client: TestClient) -> None:
     assert get(client, "/presets") == ["volleyball"]
+    assert get(client, "/presets/volleyball") == {
+        "name": "volleyball",
+        "discipline": "volleyball",
+        "sets_to_win": 3,
+        "stats": ["points_scored", "aces", "blocks", "mvp"],
+    }
+    get(client, "/presets/chess", 404)
 
 
 def test_competition_validation(client: TestClient) -> None:

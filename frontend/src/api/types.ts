@@ -13,6 +13,13 @@ export interface PlayerRef {
   name: string
 }
 
+export interface PresetOut {
+  name: string
+  discipline: string
+  sets_to_win: number
+  stats: string[]
+}
+
 export interface CompetitionOut {
   slug: string
   name: string

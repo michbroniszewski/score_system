@@ -70,6 +70,15 @@ class TeamOut(BaseModel):
     saved: bool
 
 
+class PresetOut(BaseModel):
+    """What a client needs from a preset to enter data: set count and statistic codes."""
+
+    name: str
+    discipline: str
+    sets_to_win: int
+    stats: list[str] = Field(description="Statistic codes for match events, e.g. aces.")
+
+
 class CompetitionIn(Input):
     slug: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=100)
     name: str = Name

@@ -50,6 +50,45 @@
         }
       }
     },
+    "/api/v1/presets/{name}": {
+      "get": {
+        "summary": "Get Preset",
+        "operationId": "get_preset_api_v1_presets__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clubs": {
       "get": {
         "summary": "List Clubs",
@@ -1824,6 +1863,39 @@
           "stats"
         ],
         "title": "PlayerStatsOut"
+      },
+      "PresetOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline"
+          },
+          "sets_to_win": {
+            "type": "integer",
+            "title": "Sets To Win"
+          },
+          "stats": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stats",
+            "description": "Statistic codes for match events, e.g. aces."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "discipline",
+          "sets_to_win",
+          "stats"
+        ],
+        "title": "PresetOut",
+        "description": "What a client needs from a preset to enter data: set count and statistic codes."
       },
       "RescheduleIn": {
         "properties": {

@@ -21,6 +21,7 @@ from score_system.api.schemas import (
     PlayerPatch,
     PlayerRef,
     PlayerStatsOut,
+    PresetOut,
     RescheduleIn,
     ResultIn,
     RosterEntryOut,
@@ -55,6 +56,14 @@ def health() -> dict[str, str]:
 def list_presets() -> list[str]:
     """Discipline rule presets a competition can use."""
     return list(preset_names())
+
+
+@router.get("/presets/{name}")
+def get_preset(name: str) -> PresetOut:
+    rules = services.preset(name)
+    return PresetOut(
+        name=name, discipline=rules.discipline, sets_to_win=rules.sets_to_win, stats=rules.stats
+    )
 
 
 # --- clubs --------------------------------------------------------------------

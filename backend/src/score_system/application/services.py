@@ -46,6 +46,12 @@ def competition(repo: Repository, slug: str) -> CompetitionRow:
     return row
 
 
+def preset(name: str) -> RuleSet:
+    if name not in preset_names():
+        raise NotFoundError(f"preset {name!r} not found")
+    return load_preset(name)
+
+
 def competitions(repo: Repository) -> list[CompetitionRow]:
     return repo.competitions()
 
