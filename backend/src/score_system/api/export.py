@@ -50,6 +50,10 @@ def _pages(repo: Repository) -> dict[str, Any]:
         pages[f"{base}/stats"] = routes.get_player_stats(comp.slug, repo)
         for team in teams:
             pages[f"{base}/teams/{team.id}/roster"] = routes.get_roster(comp.slug, team.id, repo)
+        if comp.playoff is not None:
+            playoff = routes.get_playoff(comp.slug, repo)
+            pages[f"{base}/playoff"] = playoff
+            matches = matches + [m for s in playoff.series for m in s.matches]
         for match in matches:
             pages[f"matches/{match.id}"] = match
             pages[f"matches/{match.id}/events"] = routes.list_events(match.id, repo)

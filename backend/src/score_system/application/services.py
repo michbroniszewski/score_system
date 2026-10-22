@@ -14,6 +14,14 @@ from score_system.domain.errors import DomainError
 from score_system.domain.fixtures import round_robin
 from score_system.domain.matches import standings_results
 from score_system.domain.models import Match, MatchStatus, StandingRow, StatEvent
+from score_system.domain.playoff import (
+    PlayoffFormat,
+    Series,
+    final_places,
+    games_to_add,
+    series_states,
+    surplus_games,
+)
 from score_system.domain.rules import RuleSet
 from score_system.domain.standings import compute_standings
 from score_system.domain.stats import player_totals
@@ -25,7 +33,12 @@ from score_system.infrastructure.orm import (
     RosterEntryRow,
     TeamRow,
 )
-from score_system.infrastructure.presets import load_preset, preset_names
+from score_system.infrastructure.presets import (
+    load_playoff,
+    load_preset,
+    playoff_names,
+    preset_names,
+)
 from score_system.infrastructure.repository import Repository
 
 MatchChange = Callable[[Match, RuleSet], Match]
@@ -66,14 +79,22 @@ def team_names(repo: Repository, comp: CompetitionRow) -> dict[str, str]:
 
 
 def create_competition(
-    repo: Repository, slug: str, name: str, preset: str, timezone: str
+    repo: Repository, slug: str, name: str, preset: str, timezone: str, playoff: str | None
 ) -> CompetitionRow:
     if preset not in preset_names():
         raise DomainError(f"unknown preset {preset!r}, available: {list(preset_names())}")
+    if playoff is not None and playoff not in playoff_names():
+        raise DomainError(f"unknown play-off {playoff!r}, available: {list(playoff_names())}")
     if repo.competition_by_slug(slug) is not None:
         raise ConflictError(f"competition {slug!r} already exists")
-    repo.add_competition(slug, name, preset, timezone)
+    repo.add_competition(slug, name, preset, timezone, playoff)
     return competition(repo, slug)
+
+
+def playoff_format(name: str) -> PlayoffFormat:
+    if name not in playoff_names():
+        raise NotFoundError(f"play-off {name!r} not found")
+    return load_playoff(name)
 
 
 def club(repo: Repository, club_id: UUID) -> ClubRow:
@@ -160,7 +181,8 @@ def generate_fixtures(repo: Repository, comp: CompetitionRow, double: bool) -> l
 
 
 def matches(repo: Repository, comp: CompetitionRow) -> list[Match]:
-    return repo.matches(comp.id)
+    """The regular-season matches; play-off games are listed by `playoff`."""
+    return [m for m in repo.matches(comp.id) if m.series is None]
 
 
 def match(repo: Repository, match_id: UUID) -> tuple[CompetitionRow, Match]:
@@ -173,15 +195,86 @@ def match(repo: Repository, match_id: UUID) -> tuple[CompetitionRow, Match]:
 def change_match(
     repo: Repository, match_id: UUID, change: MatchChange
 ) -> tuple[CompetitionRow, Match]:
-    """Apply a domain edit (reschedule, record_result, ...) to a stored match."""
+    """Apply a domain edit (reschedule, record_result, ...) to a stored match.
+
+    Once the play-off has started, every result (a corrected season result too) is checked
+    against it: the series get the games they now need, and an edit that would contradict
+    games already played is rejected.
+    """
     comp, stored = match(repo, match_id)
-    return comp, repo.save_match(comp.id, change(stored, load_preset(comp.preset)))
+    saved = repo.save_match(comp.id, change(stored, load_preset(comp.preset)))
+    if _playoff_games(repo, comp):
+        _sync_playoff(repo, comp)
+    return comp, saved
 
 
 def standings(repo: Repository, comp: CompetitionRow) -> list[StandingRow]:
+    """The regular-season table (play-off games do not count)."""
     rules = load_preset(comp.preset)
     teams = [str(t.id) for t in repo.competition_teams(comp.id)]
-    return compute_standings(teams, standings_results(repo.matches(comp.id), rules), rules)
+    return compute_standings(teams, standings_results(matches(repo, comp), rules), rules)
+
+
+class Playoff(NamedTuple):
+    format: PlayoffFormat
+    started: bool
+    series: dict[str, Series]
+    games: dict[str, list[Match]]
+    places: list[str | None]  # final classification; empty until the play-off starts
+
+
+def playoff(repo: Repository, comp: CompetitionRow) -> Playoff:
+    fmt = _competition_playoff(comp)
+    games = _playoff_games(repo, comp)
+    if not games:
+        return Playoff(
+            fmt, False, {key: Series(key, s.wins) for key, s in fmt.series.items()}, {}, []
+        )
+    table = [row.team for row in standings(repo, comp)]
+    states = series_states(fmt, table, games)
+    return Playoff(fmt, True, states, games, final_places(fmt, table, states))
+
+
+def start_playoff(repo: Repository, comp: CompetitionRow) -> Playoff:
+    """Pair the top of the final regular-season table and schedule the first games."""
+    fmt = _competition_playoff(comp)
+    repo.lock_competition(comp.id)
+    if _playoff_games(repo, comp):
+        raise ConflictError("the play-off has already started")
+    season = matches(repo, comp)
+    open_ = [m for m in season if m.status in (MatchStatus.SCHEDULED, MatchStatus.POSTPONED)]
+    if not season or open_:
+        raise ConflictError(f"the regular season is not finished ({len(open_)} matches left)")
+    table = [row.team for row in standings(repo, comp)]
+    repo.add_matches(comp.id, games_to_add(series_states(fmt, table, {}), {}))
+    return playoff(repo, comp)
+
+
+def _competition_playoff(comp: CompetitionRow) -> PlayoffFormat:
+    if comp.playoff is None:
+        raise NotFoundError(f"competition {comp.slug!r} has no play-off")
+    return load_playoff(comp.playoff)
+
+
+def _playoff_games(repo: Repository, comp: CompetitionRow) -> dict[str, list[Match]]:
+    games: dict[str, list[Match]] = {}
+    for m in repo.matches(comp.id):
+        if m.series is not None:
+            games.setdefault(m.series, []).append(m)
+    return games
+
+
+def _sync_playoff(repo: Repository, comp: CompetitionRow) -> None:
+    """Add the games the series now need and drop unplayed ones they no longer need."""
+    fmt = _competition_playoff(comp)
+    games = _playoff_games(repo, comp)
+    table = [row.team for row in standings(repo, comp)]
+    states = series_states(fmt, table, games)
+    for game in surplus_games(states, games):
+        assert game.id is not None
+        repo.delete_match(game.id)
+        games[game.series or ""].remove(game)
+    repo.add_matches(comp.id, games_to_add(states, games))
 
 
 def player(repo: Repository, player_id: UUID) -> PlayerRow:

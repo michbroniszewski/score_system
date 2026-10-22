@@ -25,6 +25,7 @@ export interface CompetitionOut {
   name: string
   preset: string
   timezone: string
+  playoff: string | null
 }
 
 export interface TeamOut {
@@ -50,6 +51,7 @@ export interface MatchOut {
   venue: string | null
   sets: SetOut[]
   walkover_winner: string | null
+  series: string | null
 }
 
 export interface StandingOut {

@@ -20,13 +20,14 @@ const played = {
     { home: 25, away: 22 },
   ],
   walkover_winner: null,
+  series: null,
 }
 const scheduled = { ...played, id: 'm2', round: 2, status: 'scheduled', sets: [], venue: null }
 
 // API responses by path, as the live API or the snapshot would answer them.
 const responses: Record<string, unknown> = {
   '/api/v1/competitions': [
-    { slug: 'league', name: 'City League', preset: 'volleyball', timezone: 'Europe/Warsaw' },
+    { slug: 'league', name: 'City League', preset: 'volleyball', timezone: 'Europe/Warsaw', playoff: null },
   ],
   '/api/v1/competitions/league': {
     slug: 'league',

@@ -1,6 +1,7 @@
 """Command-line tools.
 
-`score seed` loads a sample volleyball league into the database.
+`score seed` loads a sample volleyball league, and a finished season ready for its
+play-off, into the database.
 `score openapi` prints the API v1 schema (the snapshot kept in backend/openapi.json).
 `score export` writes the static JSON snapshot of the public API (see api/export.py).
 """
@@ -31,17 +32,22 @@ SAMPLE_SCORES = [
     [SetScore(19, 25), SetScore(21, 25), SetScore(25, 27)],
 ]
 FIRST_FRIDAY = datetime(2026, 11, 6, 19, 0, tzinfo=UTC)
+# A finished regular season of 10 teams with the TAURON Liga play-off not started yet.
+PLAYOFF_SLUG = "sample-playoff-league"
+PLAYOFF_TEAMS = [f"Play-off Team {i}" for i in range(1, 11)]
 
 
 def seed(session: Session) -> bool:
     """Create the sample league: a club, six teams with players, fixtures, two rounds of
     results and some player statistics.
 
-    Returns False and changes nothing if it already exists.
+    Also creates the play-off sample (see `seed_playoff`). Returns False and changes
+    nothing if both already exist.
     """
     repo = Repository(session)
+    created_playoff = seed_playoff(repo)
     if repo.competition_by_slug(SAMPLE_SLUG) is not None:
-        return False
+        return created_playoff
 
     rules = load_preset("volleyball")
     competition_id = repo.add_competition(SAMPLE_SLUG, "Sample Volleyball League", "volleyball")
@@ -77,6 +83,31 @@ def seed(session: Session) -> bool:
     return True
 
 
+def seed_playoff(repo: Repository) -> bool:
+    """A finished single round robin of 10 teams with the TAURON Liga play-off format, so
+    the play-off can be started right away. The team listed first wins every match (3:0
+    or 3:1), so the table is the team order. False if it already exists."""
+    if repo.competition_by_slug(PLAYOFF_SLUG) is not None:
+        return False
+    rules = load_preset("volleyball")
+    competition_id = repo.add_competition(
+        PLAYOFF_SLUG, "Sample Play-off League", "volleyball", playoff="tauron-liga"
+    )
+    team_ids = []
+    for name in PLAYOFF_TEAMS:
+        team_id = repo.add_team(name)
+        repo.enter_team(competition_id, team_id)
+        team_ids.append(str(team_id))
+    rank = {team: i for i, team in enumerate(team_ids)}
+    for i, match in enumerate(round_robin(team_ids)):
+        won = SAMPLE_SCORES[i % 2]  # 3:0 or 3:1, so 3 points a win and the table is clear
+        home_wins = rank[match.home] < rank[match.away]
+        sets = won if home_wins else [SetScore(s.away, s.home) for s in won]
+        start = FIRST_FRIDAY - timedelta(weeks=10 - match.round)
+        repo.save_match(competition_id, record_result(reschedule(match, start), sets, rules))
+    return True
+
+
 def openapi_json() -> str:
     from score_system.api.main import app  # imported here: only this command needs it
 
@@ -105,6 +136,6 @@ def main() -> None:
     with Session(make_engine()) as session:
         if seed(session):
             session.commit()
-            print(f"Created {SAMPLE_SLUG!r}.")
+            print(f"Created the samples {SAMPLE_SLUG!r} and {PLAYOFF_SLUG!r}.")
         else:
-            print(f"{SAMPLE_SLUG!r} already exists, nothing to do.")
+            print("The samples already exist, nothing to do.")

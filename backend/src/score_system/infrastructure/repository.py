@@ -37,9 +37,16 @@ class Repository:
     # --- competitions ---------------------------------------------------------
 
     def add_competition(
-        self, slug: str, name: str, preset: str, timezone: str = DEFAULT_TIMEZONE
+        self,
+        slug: str,
+        name: str,
+        preset: str,
+        timezone: str = DEFAULT_TIMEZONE,
+        playoff: str | None = None,
     ) -> UUID:
-        row = CompetitionRow(slug=slug, name=name, preset=preset, timezone=timezone)
+        row = CompetitionRow(
+            slug=slug, name=name, preset=preset, timezone=timezone, playoff=playoff
+        )
         self.session.add(row)
         self.session.flush()
         return row.id
@@ -289,6 +296,10 @@ class Repository:
         self.session.flush()
         return _to_match(row)
 
+    def delete_match(self, match_id: UUID) -> None:
+        self.session.delete(self.session.get_one(MatchRow, match_id))
+        self.session.flush()
+
     def match(self, match_id: UUID) -> tuple[CompetitionRow, Match] | None:
         """A stored match with its competition."""
         row = self.session.get(MatchRow, match_id)
@@ -298,7 +309,9 @@ class Repository:
         rows = self.session.scalars(
             select(MatchRow)
             .where(MatchRow.competition_id == competition_id)
-            .order_by(MatchRow.round, MatchRow.starts_at, MatchRow.id)
+            .order_by(
+                MatchRow.series.nulls_first(), MatchRow.round, MatchRow.starts_at, MatchRow.id
+            )
         )
         return [_to_match(row) for row in rows]
 
@@ -318,6 +331,7 @@ def _set_fields(row: MatchRow, match: Match) -> None:
     row.venue = match.venue
     row.sets = [[s.home, s.away] for s in match.sets]
     row.walkover_winner_id = UUID(match.walkover_winner) if match.walkover_winner else None
+    row.series = match.series
 
 
 def _to_match(row: MatchRow) -> Match:
@@ -332,4 +346,5 @@ def _to_match(row: MatchRow) -> Match:
         venue=row.venue,
         sets=tuple(SetScore(home, away) for home, away in row.sets),
         walkover_winner=str(row.walkover_winner_id) if row.walkover_winner_id else None,
+        series=row.series,
     )

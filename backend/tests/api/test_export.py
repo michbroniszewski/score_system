@@ -30,21 +30,28 @@ def test_every_exported_file_is_the_api_response(
     assert count == len(files)
     for path, text in files.items():
         assert json.loads(text) == get(client, f"/{path}"), path
+    expected = {"presets", "competitions"}
+    for comp in get(client, "/competitions"):
+        base = f"competitions/{comp['slug']}"
+        teams = get(client, f"/{base}/teams")
+        matches = get(client, f"/{base}/matches")
+        if comp["playoff"]:
+            expected.add(f"{base}/playoff")
+            playoff = get(client, f"/{base}/playoff")
+            matches += [m for s in playoff["series"] for m in s["matches"]]
+        expected |= {
+            base,
+            f"{base}/teams",
+            f"{base}/matches",
+            f"{base}/standings",
+            f"{base}/stats",
+            *(f"{base}/teams/{t['id']}/roster" for t in teams),
+            *(f"matches/{m['id']}" for m in matches),
+            *(f"matches/{m['id']}/events" for m in matches),
+        }
+    assert expected == set(files)
+    assert "competitions/sample-playoff-league/playoff" in files
     base = f"competitions/{SAMPLE_SLUG}"
-    teams = get(client, f"/{base}/teams")
-    matches = get(client, f"/{base}/matches")
-    assert {
-        "presets",
-        "competitions",
-        base,
-        f"{base}/teams",
-        f"{base}/matches",
-        f"{base}/standings",
-        f"{base}/stats",
-        *(f"{base}/teams/{t['id']}/roster" for t in teams),
-        *(f"matches/{m['id']}" for m in matches),
-        *(f"matches/{m['id']}/events" for m in matches),
-    } == set(files)
     assert client.get(f"{API}/{base}/stats").json() != []
 
 

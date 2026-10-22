@@ -40,6 +40,9 @@ class Match:
     sets: tuple[SetScore, ...] = ()  # only when PLAYED
     walkover_winner: str | None = None  # only when WALKOVER
     id: UUID | None = None  # assigned when the match is first stored
+    # Play-off games belong to a series (e.g. "A") and `round` is the game number;
+    # regular-season matches have no series.
+    series: str | None = None
 
 
 @dataclass(frozen=True)

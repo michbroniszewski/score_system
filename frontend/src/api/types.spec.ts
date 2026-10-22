@@ -12,9 +12,13 @@ const fields = {
   PresetOut: { name: true, discipline: true, sets_to_win: true, stats: true } satisfies Fields<
     T.PresetOut
   >,
-  CompetitionOut: { slug: true, name: true, preset: true, timezone: true } satisfies Fields<
-    T.CompetitionOut
-  >,
+  CompetitionOut: {
+    slug: true,
+    name: true,
+    preset: true,
+    timezone: true,
+    playoff: true,
+  } satisfies Fields<T.CompetitionOut>,
   TeamOut: {
     id: true,
     name: true,
@@ -33,6 +37,7 @@ const fields = {
     venue: true,
     sets: true,
     walkover_winner: true,
+    series: true,
   } satisfies Fields<T.MatchOut>,
   StandingOut: {
     position: true,

@@ -1,0 +1,19 @@
+# TAURON Liga play-off for places 1-8 (season 2026/2027). Validated by
+# score_system.domain.playoff.PlayoffFormat. Places 9 and below follow the regular season.
+name: TAURON Liga (play-off 1-8)
+seeds: 8
+series:
+  # Quarter-finals, places 1-8: best of three (2 wins).
+  A: {sides: [seed 1, seed 8], wins: 2}
+  B: {sides: [seed 2, seed 7], wins: 2}
+  C: {sides: [seed 3, seed 6], wins: 2}
+  D: {sides: [seed 4, seed 5], wins: 2}
+  # Semi-finals, places 1-4.
+  E: {sides: [winner A, winner D], wins: 2}
+  F: {sides: [winner B, winner C], wins: 2}
+  # Places 5-6: the two best-seeded quarter-final losers; the other two are 7th and 8th.
+  I: {sides: [loser A, loser B, loser C, loser D], wins: 2}
+  # Places 3-4 and the final: best of five (3 wins).
+  J: {sides: [loser E, loser F], wins: 3}
+  L: {sides: [winner E, winner F], wins: 3}
+places: [winner L, loser L, winner J, loser J, winner I, loser I, rest I, rest I]
