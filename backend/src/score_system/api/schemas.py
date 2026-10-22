@@ -88,6 +88,9 @@ class CompetitionIn(Input):
         max_length=64,
         description="IANA time zone; a match's day (for rosters) is its date in this zone.",
     )
+    playoff: str | None = Field(
+        default=None, description="Play-off format (GET /playoffs), fixed for the season."
+    )
 
     @field_validator("timezone")
     @classmethod
@@ -106,6 +109,7 @@ class CompetitionOut(BaseModel):
     name: str
     preset: str
     timezone: str
+    playoff: str | None
 
 
 class EntryIn(Input):
@@ -145,6 +149,43 @@ class MatchOut(BaseModel):
     venue: str | None
     sets: list[SetOut]
     walkover_winner: UUID | None
+    series: str | None = Field(description="Play-off series; `round` is then the game number.")
+
+
+class SeriesFormatOut(BaseModel):
+    key: str
+    sides: list[str] = Field(description="Team sources: seed N, winner X, loser X.")
+    wins: int
+
+
+class PlayoffFormatOut(BaseModel):
+    id: str
+    name: str
+    seeds: int
+    series: list[SeriesFormatOut]
+
+
+class SeriesOut(BaseModel):
+    key: str
+    wins: int = Field(description="Games needed to win the series.")
+    home: TeamRef | None = Field(description="The better-seeded team, host of game 1.")
+    away: TeamRef | None
+    home_wins: int
+    away_wins: int
+    winner: TeamRef | None
+    matches: list[MatchOut]
+
+
+class PlaceOut(BaseModel):
+    place: int
+    team: TeamRef | None = Field(description="None until the series deciding it ends.")
+
+
+class PlayoffOut(BaseModel):
+    format: str
+    started: bool
+    series: list[SeriesOut]
+    places: list[PlaceOut] = Field(description="Final classification; empty until started.")
 
 
 class RescheduleIn(Input):

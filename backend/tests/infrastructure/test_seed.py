@@ -1,7 +1,15 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from score_system.cli import SAMPLE_CLUB, SAMPLE_SLUG, SAMPLE_TEAMS, seed
+from score_system.application import services
+from score_system.cli import (
+    PLAYOFF_SLUG,
+    PLAYOFF_TEAMS,
+    SAMPLE_CLUB,
+    SAMPLE_SLUG,
+    SAMPLE_TEAMS,
+    seed,
+)
 from score_system.domain.matches import standings_results
 from score_system.domain.models import MatchStatus
 from score_system.domain.standings import compute_standings
@@ -32,3 +40,21 @@ def test_seed_creates_sample_league_once(session: Session) -> None:
 
     assert len(repo.roster_entries(competition.id)) == 2 * len(SAMPLE_TEAMS)
     assert len(repo.competition_events(competition.id)) == 2 * 5  # two per played match
+
+
+def test_seed_creates_a_season_ready_for_its_play_off(session: Session) -> None:
+    seed(session)
+    repo = Repository(session)
+    comp = services.competition(repo, PLAYOFF_SLUG)
+
+    table = services.standings(repo, comp)
+    assert [r.played for r in table] == [9] * 10
+    names = services.team_names(repo, comp)
+    assert [names[r.team] for r in table] == PLAYOFF_TEAMS
+    assert services.playoff(repo, comp).started is False
+
+    started = services.start_playoff(repo, comp)
+    assert (names[started.series["A"].high or ""], names[started.series["A"].low or ""]) == (
+        "Play-off Team 1",
+        "Play-off Team 8",
+    )

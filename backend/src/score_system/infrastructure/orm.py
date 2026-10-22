@@ -43,6 +43,8 @@ class CompetitionRow(Base):
     timezone: Mapped[str] = mapped_column(
         String(64), default=DEFAULT_TIMEZONE, server_default=DEFAULT_TIMEZONE
     )
+    # Play-off format file in backend/presets/playoffs/, fixed at creation; None: no play-off.
+    playoff: Mapped[str | None] = mapped_column(String(50))
 
 
 class ClubRow(Base):
@@ -83,6 +85,8 @@ class MatchRow(Base):
     # Set scores as [[home, away], ...]; empty unless the match was played.
     sets: Mapped[list[list[int]]] = mapped_column(JSONB, default=list)
     walkover_winner_id: Mapped[UUID | None] = mapped_column(ForeignKey("teams.id"))
+    # Play-off series key (e.g. "A"), with the game number in `round`; None in the season.
+    series: Mapped[str | None] = mapped_column(String(10))
 
 
 class PlayerRow(Base):

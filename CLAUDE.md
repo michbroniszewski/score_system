@@ -43,6 +43,7 @@ Principles that are easy to trip over:
 
 - **API-first for mobile.** API v1 is the only client contract; the static JSON export uses exactly the same format as the API responses, so the Pages frontend and the future mobile app read data identically. An OpenAPI schema snapshot is kept in the repo; changing it is a deliberate decision.
 - **Universality through configuration.** Discipline rules are YAML presets in `backend/presets/` (validated with Pydantic). Tiebreakers are a list of pluggable strategies. A new discipline means a new preset and, if needed, one new strategy, with no changes elsewhere.
+- **Play-off formats** are fixed YAML files in `backend/presets/playoffs/` (`domain/playoff.py` validates them), chosen when a competition is created and never edited. Series and final places are derived from the regular-season table and the games, never stored; play-off games are matches with a `series` (and the game number in `round`), excluded from `/matches` and the standings. After any result the service adds the games a series needs and rejects an edit that contradicts games already played.
 - Dates in UTC (ISO 8601); each competition has a `timezone` (default `Europe/Warsaw`) that decides a match's day. Stable identifiers (UUID/slug), authentication planned as tokens (not cookie sessions).
 
 ## Commands

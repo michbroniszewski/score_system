@@ -17,6 +17,7 @@ const match: MatchOut = {
     { home: 25, away: 23 },
   ],
   walkover_winner: null,
+  series: null,
 }
 
 describe('formatStart', () => {

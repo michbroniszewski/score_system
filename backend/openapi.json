@@ -89,6 +89,68 @@
         }
       }
     },
+    "/api/v1/playoffs": {
+      "get": {
+        "summary": "List Playoffs",
+        "description": "Play-off formats a competition can use (fixed, chosen when it is created).",
+        "operationId": "list_playoffs_api_v1_playoffs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Playoffs Api V1 Playoffs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/playoffs/{name}": {
+      "get": {
+        "summary": "Get Playoff Format",
+        "operationId": "get_playoff_format_api_v1_playoffs__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayoffFormatOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clubs": {
       "get": {
         "summary": "List Clubs",
@@ -643,6 +705,84 @@
                     "$ref": "#/components/schemas/StandingOut"
                   },
                   "title": "Response Get Standings Api V1 Competitions  Slug  Standings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/competitions/{slug}/playoff": {
+      "get": {
+        "summary": "Get Playoff",
+        "description": "The play-off series with their games, and the final classification.",
+        "operationId": "get_playoff_api_v1_competitions__slug__playoff_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayoffOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Start Playoff",
+        "description": "Start the play-off from the final regular-season table.",
+        "operationId": "start_playoff_api_v1_competitions__slug__playoff_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayoffOut"
                 }
               }
             }
@@ -1518,6 +1658,18 @@
             "title": "Timezone",
             "description": "IANA time zone; a match's day (for rosters) is its date in this zone.",
             "default": "Europe/Warsaw"
+          },
+          "playoff": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playoff",
+            "description": "Play-off format (GET /playoffs), fixed for the season."
           }
         },
         "type": "object",
@@ -1545,6 +1697,17 @@
           "timezone": {
             "type": "string",
             "title": "Timezone"
+          },
+          "playoff": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playoff"
           }
         },
         "type": "object",
@@ -1552,7 +1715,8 @@
           "slug",
           "name",
           "preset",
-          "timezone"
+          "timezone",
+          "playoff"
         ],
         "title": "CompetitionOut"
       },
@@ -1752,6 +1916,18 @@
               }
             ],
             "title": "Walkover Winner"
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series",
+            "description": "Play-off series; `round` is then the game number."
           }
         },
         "type": "object",
@@ -1764,7 +1940,8 @@
           "starts_at",
           "venue",
           "sets",
-          "walkover_winner"
+          "walkover_winner",
+          "series"
         ],
         "title": "MatchOut"
       },
@@ -1778,6 +1955,31 @@
           "cancelled"
         ],
         "title": "MatchStatus"
+      },
+      "PlaceOut": {
+        "properties": {
+          "place": {
+            "type": "integer",
+            "title": "Place"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None until the series deciding it ends."
+          }
+        },
+        "type": "object",
+        "required": [
+          "place",
+          "team"
+        ],
+        "title": "PlaceOut"
       },
       "PlayerIn": {
         "properties": {
@@ -1907,6 +2109,72 @@
           "stats"
         ],
         "title": "PlayerStatsOut"
+      },
+      "PlayoffFormatOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "seeds": {
+            "type": "integer",
+            "title": "Seeds"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesFormatOut"
+            },
+            "type": "array",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "seeds",
+          "series"
+        ],
+        "title": "PlayoffFormatOut"
+      },
+      "PlayoffOut": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "title": "Format"
+          },
+          "started": {
+            "type": "boolean",
+            "title": "Started"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesOut"
+            },
+            "type": "array",
+            "title": "Series"
+          },
+          "places": {
+            "items": {
+              "$ref": "#/components/schemas/PlaceOut"
+            },
+            "type": "array",
+            "title": "Places",
+            "description": "Final classification; empty until started."
+          }
+        },
+        "type": "object",
+        "required": [
+          "format",
+          "started",
+          "series",
+          "places"
+        ],
+        "title": "PlayoffOut"
       },
       "PresetOut": {
         "properties": {
@@ -2125,6 +2393,104 @@
         "type": "object",
         "title": "RosterIn",
         "description": "Add an existing player (`player_id`) or a new one (`player`) to a team's roster."
+      },
+      "SeriesFormatOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "sides": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sides",
+            "description": "Team sources: seed N, winner X, loser X."
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "sides",
+          "wins"
+        ],
+        "title": "SeriesFormatOut"
+      },
+      "SeriesOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins",
+            "description": "Games needed to win the series."
+          },
+          "home": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The better-seeded team, host of game 1."
+          },
+          "away": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "home_wins": {
+            "type": "integer",
+            "title": "Home Wins"
+          },
+          "away_wins": {
+            "type": "integer",
+            "title": "Away Wins"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/MatchOut"
+            },
+            "type": "array",
+            "title": "Matches"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "wins",
+          "home",
+          "away",
+          "home_wins",
+          "away_wins",
+          "winner",
+          "matches"
+        ],
+        "title": "SeriesOut"
       },
       "SetIn": {
         "properties": {

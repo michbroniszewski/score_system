@@ -16,16 +16,21 @@ from score_system.api.schemas import (
     FixturesIn,
     LeaveIn,
     MatchOut,
+    PlaceOut,
     PlayerIn,
     PlayerOut,
     PlayerPatch,
     PlayerRef,
     PlayerStatsOut,
+    PlayoffFormatOut,
+    PlayoffOut,
     PresetOut,
     RescheduleIn,
     ResultIn,
     RosterEntryOut,
     RosterIn,
+    SeriesFormatOut,
+    SeriesOut,
     SetOut,
     StandingOut,
     TeamIn,
@@ -39,7 +44,7 @@ from score_system.domain import matches as edits
 from score_system.domain.models import Match, SetScore, StandingRow
 from score_system.domain.rules import RuleSet
 from score_system.infrastructure.orm import MatchEventRow, PlayerRow, RosterEntryRow
-from score_system.infrastructure.presets import preset_names
+from score_system.infrastructure.presets import playoff_names, preset_names
 from score_system.infrastructure.repository import Repository
 
 router = APIRouter(prefix="/api/v1")
@@ -64,6 +69,25 @@ def get_preset(name: str) -> PresetOut:
     rules = services.preset(name)
     return PresetOut(
         name=name, discipline=rules.discipline, sets_to_win=rules.sets_to_win, stats=rules.stats
+    )
+
+
+@router.get("/playoffs")
+def list_playoffs() -> list[str]:
+    """Play-off formats a competition can use (fixed, chosen when it is created)."""
+    return list(playoff_names())
+
+
+@router.get("/playoffs/{name}")
+def get_playoff_format(name: str) -> PlayoffFormatOut:
+    fmt = services.playoff_format(name)
+    return PlayoffFormatOut(
+        id=name,
+        name=fmt.name,
+        seeds=fmt.seeds,
+        series=[
+            SeriesFormatOut(key=key, sides=s.sides, wins=s.wins) for key, s in fmt.series.items()
+        ],
     )
 
 
@@ -123,7 +147,9 @@ def list_competitions(repo: Repo) -> list[CompetitionOut]:
 
 @router.post("/competitions", status_code=status.HTTP_201_CREATED)
 def create_competition(body: CompetitionIn, repo: Repo) -> CompetitionOut:
-    row = services.create_competition(repo, body.slug, body.name, body.preset, body.timezone)
+    row = services.create_competition(
+        repo, body.slug, body.name, body.preset, body.timezone, body.playoff
+    )
     return CompetitionOut.model_validate(row)
 
 
@@ -171,6 +197,20 @@ def get_standings(slug: str, repo: Repo) -> list[StandingOut]:
     comp = services.competition(repo, slug)
     names = services.team_names(repo, comp)
     return [_standing_out(row, names) for row in services.standings(repo, comp)]
+
+
+@router.get("/competitions/{slug}/playoff")
+def get_playoff(slug: str, repo: Repo) -> PlayoffOut:
+    """The play-off series with their games, and the final classification."""
+    comp = services.competition(repo, slug)
+    return _playoff_out(services.playoff(repo, comp), services.team_names(repo, comp))
+
+
+@router.post("/competitions/{slug}/playoff", status_code=status.HTTP_201_CREATED)
+def start_playoff(slug: str, repo: Repo) -> PlayoffOut:
+    """Start the play-off from the final regular-season table."""
+    comp = services.competition(repo, slug)
+    return _playoff_out(services.start_playoff(repo, comp), services.team_names(repo, comp))
 
 
 # --- matches ------------------------------------------------------------------
@@ -315,6 +355,31 @@ def _match_out(match: Match, names: dict[str, str]) -> MatchOut:
         venue=match.venue,
         sets=[SetOut(home=s.home, away=s.away) for s in match.sets],
         walkover_winner=UUID(match.walkover_winner) if match.walkover_winner else None,
+        series=match.series,
+    )
+
+
+def _playoff_out(playoff: services.Playoff, names: dict[str, str]) -> PlayoffOut:
+    def ref(team: str | None) -> TeamRef | None:
+        return None if team is None else _ref(team, names)
+
+    return PlayoffOut(
+        format=playoff.format.name,
+        started=playoff.started,
+        series=[
+            SeriesOut(
+                key=key,
+                wins=s.wins,
+                home=ref(s.high),
+                away=ref(s.low),
+                home_wins=s.high_wins,
+                away_wins=s.low_wins,
+                winner=ref(s.winner),
+                matches=[_match_out(m, names) for m in playoff.games.get(key, [])],
+            )
+            for key, s in playoff.series.items()
+        ],
+        places=[PlaceOut(place=i, team=ref(t)) for i, t in enumerate(playoff.places, start=1)],
     )
 
 
