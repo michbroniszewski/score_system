@@ -17,6 +17,7 @@ VALID: dict[str, Any] = {
 
 def test_valid_ruleset() -> None:
     assert RuleSet.model_validate(VALID).points["3:2"] == (2, 1)
+    assert RuleSet.model_validate({**VALID, "tiebreakers": ["points", "head_to_head"]})
 
 
 @pytest.mark.parametrize(
@@ -26,6 +27,7 @@ def test_valid_ruleset() -> None:
         {"points": {**VALID["points"], "3:3": [1, 1]}},  # impossible result
         {"sets_to_win": 2},  # points do not match best of three
         {"tiebreakers": ["points", "coin_toss"]},
+        {"tiebreakers": ["points", "head_to_head", "wins"]},  # needs the others first
         {"result_format": "score"},
         {"unexpected": 1},
         {"walkover_set": [0, 25]},  # winner must score more

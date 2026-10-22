@@ -28,7 +28,7 @@ The full architecture and stage plan lives in `docs/architecture.md`.
 - **Frontend:** Vue 3 + TypeScript + Vite, as a PWA.
 - **Tooling:** uv (dependencies), Docker Compose (local environment; the owner wants to learn Docker through this project, so explain and comment Docker configuration), Makefile.
 - **Hosting:** no paid server. The system runs locally (Docker) and data is edited locally; `make export` writes a JSON snapshot to `data/export/`, and GitHub Actions publishes a read-only site from it to GitHub Pages. The database never leaves the owner's machine.
-- **First discipline:** volleyball, round robin. Points: 3:0 and 3:1 = 3, 3:2 = 2, 2:3 = 1, 1:3 and 0:3 = 0. Standings order: points, set ratio, small-points ratio (may be extended later).
+- **First discipline:** volleyball, round robin. Points: 3:0 and 3:1 = 3, 3:2 = 2, 2:3 = 1, 1:3 and 0:3 = 0. Standings order (TAURON Liga, Michal 2026-10-22): points, wins, set ratio, small-points ratio, then head-to-head (a table of only the matches between the still-tied teams).
 
 ## Architecture (target)
 

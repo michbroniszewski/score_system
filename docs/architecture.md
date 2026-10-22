@@ -101,7 +101,7 @@ points:                        # [winner, loser] points by set result
   "3:1": [3, 0]
   "3:2": [2, 1]
 walkover_set: [25, 0]          # every set of a walkover: 3:0, small points 75:0
-tiebreakers: [points, set_ratio, small_points_ratio]
+tiebreakers: [points, wins, set_ratio, small_points_ratio, head_to_head]
 stats:
   - {code: points_scored, level: player, aggregate: sum}
   - {code: aces, level: player, aggregate: sum}
@@ -235,5 +235,5 @@ Also useful: plan mode before each stage, the `Plan` subagent for larger changes
 - **D5.** uv + Docker Compose (also to learn Docker).
 - **D6.** First discipline: volleyball, round robin.
 - **D7.** Database: PostgreSQL in Docker.
-- **D8.** Volleyball scoring: 3:0 and 3:1 = 3 pts, 3:2 = 2 pts, 2:3 = 1 pt, 1:3 and 0:3 = 0 pts; tiebreakers: points, set ratio, small-points ratio (for now, may be extended later; revised 2026-10-18).
+- **D8.** Volleyball scoring: 3:0 and 3:1 = 3 pts, 3:2 = 2 pts, 2:3 = 1 pt, 1:3 and 0:3 = 0 pts; tiebreakers: points, set ratio, small-points ratio (for now, may be extended later; revised 2026-10-18). Revised 2026-10-22 to the TAURON Liga order: points, wins, set ratio, small-points ratio, head-to-head.
 - **D9.** Project language: English for everything in the repository (code, identifiers, comments, docs, commits).
