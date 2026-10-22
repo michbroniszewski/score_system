@@ -62,18 +62,78 @@ EQUAL_POINTS_MORE_WINS_WORSE_SETS = [
 ]
 
 
-def test_volleyball_ignores_wins(volleyball: RuleSet) -> None:
-    rows = compute_standings(["A", "B", "C", "D"], EQUAL_POINTS_MORE_WINS_WORSE_SETS, volleyball)
+def test_volleyball_ranks_wins_before_sets(volleyball: RuleSet) -> None:
+    rows = compute_standings(["B", "A", "C", "D"], EQUAL_POINTS_MORE_WINS_WORSE_SETS, volleyball)
+
+    assert [(r.team, r.points, r.wins) for r in rows][:2] == [("A", 4, 2), ("B", 4, 1)]
+
+
+def test_wins_are_skipped_when_not_configured(volleyball: RuleSet) -> None:
+    no_wins = volleyball.model_copy(update={"tiebreakers": ["points", "set_ratio"]})
+
+    rows = compute_standings(["A", "B", "C", "D"], EQUAL_POINTS_MORE_WINS_WORSE_SETS, no_wins)
 
     assert [(r.team, r.points, r.wins) for r in rows][:2] == [("B", 4, 1), ("A", 4, 2)]
 
 
-def test_wins_break_points_tie_when_configured(volleyball: RuleSet) -> None:
-    with_wins = volleyball.model_copy(update={"tiebreakers": ["points", "wins", "set_ratio"]})
+# A and B: one 3:0 win and one 0:3 loss each, all sets 25:20, so equal on every criterion
+# of the full table; A beat B. D beat A, B beat C.
+EQUAL_BUT_A_BEAT_B = [
+    match("A", "B", *[(25, 20)] * 3),
+    match("B", "C", *[(25, 20)] * 3),
+    match("D", "A", *[(25, 20)] * 3),
+]
 
-    rows = compute_standings(["B", "A", "C", "D"], EQUAL_POINTS_MORE_WINS_WORSE_SETS, with_wins)
 
-    assert [(r.team, r.points, r.wins) for r in rows][:2] == [("A", 4, 2), ("B", 4, 1)]
+def test_head_to_head_breaks_a_full_tie(volleyball: RuleSet) -> None:
+    rows = compute_standings(["B", "A", "C", "D"], EQUAL_BUT_A_BEAT_B, volleyball)
+
+    assert [r.team for r in rows] == ["D", "A", "B", "C"]
+    assert [r.position for r in rows] == [1, 2, 3, 4]
+
+
+def test_head_to_head_is_skipped_when_not_configured(volleyball: RuleSet) -> None:
+    without = volleyball.model_copy(update={"tiebreakers": ["points", "wins", "set_ratio"]})
+
+    rows = compute_standings(["B", "A", "C", "D"], EQUAL_BUT_A_BEAT_B, without)
+
+    assert [r.team for r in rows] == ["D", "B", "A", "C"]
+
+
+def test_head_to_head_cycle_keeps_the_given_order(volleyball: RuleSet) -> None:
+    # Three teams, each beat one other 3:0: the table of their matches is tied too.
+    cycle = [
+        match("A", "B", *[(25, 20)] * 3),
+        match("B", "C", *[(25, 20)] * 3),
+        match("C", "A", *[(25, 20)] * 3),
+    ]
+
+    assert [r.team for r in compute_standings(["C", "A", "B"], cycle, volleyball)] == [
+        "C",
+        "A",
+        "B",
+    ]
+
+
+def test_head_to_head_ranks_three_tied_teams_by_their_table(volleyball: RuleSet) -> None:
+    # A, B and C: 2 wins and 2 losses each, all 3:0 with 25:20 sets, so equal on every
+    # criterion. Among themselves A won both its matches, B one, C none.
+    won = [(25, 20)] * 3
+    matches = [
+        *(match(*pair, *won) for pair in [("A", "B"), ("A", "C"), ("B", "C")]),
+        *(match(*pair, *won) for pair in [("D", "A"), ("E", "A"), ("B", "D"), ("E", "B")]),
+        *(match(*pair, *won) for pair in [("C", "D"), ("C", "E")]),
+    ]
+
+    rows = compute_standings(["C", "B", "A", "D", "E"], matches, volleyball)
+
+    assert [(r.team, r.points) for r in rows] == [
+        ("E", 6),  # 2 wins, 1 loss: better set ratio
+        ("A", 6),
+        ("B", 6),
+        ("C", 6),
+        ("D", 3),
+    ]
 
 
 def test_set_ratio_breaks_tie(volleyball: RuleSet) -> None:

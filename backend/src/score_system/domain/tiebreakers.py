@@ -1,6 +1,7 @@
 """Standings criteria. Each one maps a row to a value where higher ranks better.
 
-A ruleset lists criteria by name; a new criterion is one new entry here.
+A ruleset lists criteria by name; a new criterion is one new entry here. HEAD_TO_HEAD is
+the one criterion that needs the matches, not a row: see `compute_standings`.
 """
 
 from collections.abc import Callable
@@ -16,6 +17,9 @@ def _ratio(won: int, lost: int) -> Fraction | float:
         return float("inf") if won > 0 else 0
     return Fraction(won, lost)
 
+
+# Teams still tied are ranked by a table of only the matches between them (same criteria).
+HEAD_TO_HEAD = "head_to_head"
 
 TIEBREAKERS: dict[str, Callable[[StandingRow], Any]] = {
     "points": lambda row: row.points,

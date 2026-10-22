@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, PositiveInt, model_validator
 
-from score_system.domain.tiebreakers import TIEBREAKERS
+from score_system.domain.tiebreakers import HEAD_TO_HEAD, TIEBREAKERS
 
 
 class RuleSet(BaseModel):
@@ -26,9 +26,11 @@ class RuleSet(BaseModel):
         expected = {f"{self.sets_to_win}:{lost}" for lost in range(self.sets_to_win)}
         if set(self.points) != expected:
             raise ValueError(f"points must define exactly the results {sorted(expected)}")
-        unknown = [name for name in self.tiebreakers if name not in TIEBREAKERS]
+        unknown = [n for n in self.tiebreakers if n not in TIEBREAKERS and n != HEAD_TO_HEAD]
         if unknown:
             raise ValueError(f"unknown tiebreakers: {unknown}")
+        if HEAD_TO_HEAD in self.tiebreakers[:-1]:
+            raise ValueError(f"{HEAD_TO_HEAD} must be the last tiebreaker")
         winner, loser = self.walkover_set
         if not winner > loser >= 0:
             raise ValueError("walkover_set must be (winner, loser) with winner > loser >= 0")
