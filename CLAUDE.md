@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Never commit or push without Michal's explicit consent.** Prepare changes locally, show them (diff, test results) and wait for approval. Consent for one commit does not cover the next one.
 - **Ask, don't assume.** When a task can be read more than one way, present the options with a recommendation and ask.
 - **Tests from the start, CI kept up to date.** Every logic change comes with tests; when commands, dependencies or structure change, update `.github/workflows/` too.
-- **English is the project language.** Everything in the repository is written in English: code, identifiers, comments, docstrings, docs, commit messages and PR descriptions. The one exception: the public site's user-facing texts are Polish (Michal, 2026-10-20).
+- **English is the project language.** Everything in the repository is written in English: code, identifiers, comments, docstrings, docs, commit messages and PR descriptions. The one exception: user-facing texts of the public site and of the local admin panel are Polish (Michal, 2026-10-20 and 2026-10-22).
 
 ## Coding guidelines (karpathy-guidelines)
 
@@ -50,6 +50,7 @@ Principles that are easy to trip over:
 Lint and tests run on the host (uv for the backend, npm for the frontend), with the same steps as CI. `make help` lists all targets.
 
 - `make install`: install backend (`uv sync --locked`) and frontend (`npm ci`) dependencies.
+- `make dev`: `up` (waiting for the services), `migrate` and `seed` in one go; safe to repeat.
 - `make up` / `make down` / `make logs`: start, stop and follow the Docker Compose environment (`db`, `api`, `frontend`, plus `adminer` from `compose.override.yaml`).
 - `make migrate` / `make seed`: apply Alembic migrations / load the sample league (`score seed`), both inside the `api` container.
 - `make openapi`: regenerate the API schema snapshot `backend/openapi.json`; `tests/api/test_openapi_snapshot.py` fails until the snapshot matches the code. Commit it only for an intended API change.
@@ -64,8 +65,8 @@ Lint and tests run on the host (uv for the backend, npm for the frontend), with 
 
 The Python project lives in `backend/` (its own `pyproject.toml` and `uv.lock`), the frontend in `frontend/`. CI (`.github/workflows/ci.yml`) runs the backend checks (plus `alembic check` and hypothesis with a fixed seed, `HYPOTHESIS_PROFILE=ci`), the frontend checks and build, and a Docker smoke test (build with layer cache, migrate, seed, query the API).
 
-Frontend (`frontend/src/`): `api/client.ts` reads the live API in development (Vite proxies `/api`) and the static snapshot when built with `VITE_STATIC_DATA=true` (Pages); `api/types.ts` mirrors the response schemas and `api/types.spec.ts` checks them against `backend/openapi.json`; hash routing (`router.ts`) because Pages has no SPA fallback.
+Frontend (`frontend/src/`): `api/client.ts` reads the live API in development (Vite proxies `/api`) and the static snapshot when built with `VITE_STATIC_DATA=true` (Pages); `api/types.ts` mirrors the response schemas and `api/types.spec.ts` checks them against `backend/openapi.json`; hash routing (`router.ts`) because Pages has no SPA fallback. The local admin panel (`admin/`, `#/admin`) writes through `send()` in the client; its routes exist only when `VITE_STATIC_DATA` is not `true`, so the Pages build does not contain it (`router.spec.ts`).
 
-Request flow: `api/routes.py` (thin, builds responses) → `application/services.py` (use cases; raises `NotFoundError` → 404, `ConflictError` → 409) → `infrastructure/repository.py` + `domain/`. Rejected input raises `DomainError` (`domain/errors.py`) → 422, except its subclass `InvalidTransitionError` → 409; any other exception, a plain `ValueError` included, is a bug → 500 (`api/main.py`). Each request is one transaction (`api/deps.py`), committed before the response is sent (`Depends(..., scope="function")`).
+Request flow: `api/routes.py` (thin, builds responses) → `application/services.py` (use cases; raises `NotFoundError` → 404, `ConflictError` → 409) → `infrastructure/repository.py` + `domain/`. Rejected input raises `DomainError` (`domain/errors.py`) → 422, except its subclass `InvalidTransitionError` → 409; any other exception, a plain `ValueError` included, is a bug → 500 (`api/main.py`). Each request is one transaction (`api/deps.py`), committed before the response is sent (`Depends(..., scope="function")`). There is no login yet, so the published ports are bound to 127.0.0.1 and a change (POST/PATCH/DELETE) whose `Origin` names another site gets 403 (`same_origin_writes` in `api/main.py`).
 
 Domain tests run without a database (`uv run pytest tests/domain`). Tests in `tests/infrastructure/` need PostgreSQL (the Compose `db` service locally, a service container in CI): they recreate the `score_system_test` database (`TEST_DATABASE_URL`), build the schema by running the migrations, and roll back each test.

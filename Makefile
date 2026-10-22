@@ -10,10 +10,11 @@ POSTGRES_PASSWORD ?= score
 POSTGRES_DB ?= score_system
 export DB_PORT
 
-.PHONY: help install up down logs migrate seed export openapi lint format test test-unit
+.PHONY: help install dev up down logs migrate seed export openapi lint format test test-unit
 
 help:
 	@echo "install  install backend (uv) and frontend (npm) dependencies"
+	@echo "dev      start everything, migrate and load the sample league (then open localhost:5173)"
 	@echo "up       build and start the Docker Compose environment"
 	@echo "down     stop the environment (the database volume is kept)"
 	@echo "logs     follow the logs of all services"
@@ -29,6 +30,13 @@ help:
 install:
 	cd backend && uv sync --locked
 	cd frontend && npm ci
+
+# One command for local testing: start all services, wait until they run (the database
+# until it is healthy), then migrate and seed. Safe to repeat: seeding skips existing data.
+dev:
+	docker compose up -d --build --wait
+	$(MAKE) migrate seed
+	@echo "Site: http://localhost:5173  Admin panel: http://localhost:5173/#/admin"
 
 up:
 	docker compose up -d --build

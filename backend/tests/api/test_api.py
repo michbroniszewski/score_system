@@ -18,6 +18,13 @@ def league(client: TestClient) -> list[dict[str, Any]]:
 
 def test_presets(client: TestClient) -> None:
     assert get(client, "/presets") == ["volleyball"]
+    assert get(client, "/presets/volleyball") == {
+        "name": "volleyball",
+        "discipline": "volleyball",
+        "sets_to_win": 3,
+        "stats": ["points_scored", "aces", "blocks", "mvp"],
+    }
+    get(client, "/presets/chess", 404)
 
 
 def test_competition_validation(client: TestClient) -> None:
@@ -87,6 +94,13 @@ def test_match_lifecycle(client: TestClient, league: list[dict[str, Any]]) -> No
     moved = post(client, f"/matches/{first}/reschedule", {"starts_at": "2026-11-06T20:00:00+01:00"})
     assert moved["starts_at"] == "2026-11-06T19:00:00Z"
     post(client, f"/matches/{first}/reschedule", {"starts_at": "2026-11-06T20:00:00"}, 422)
+    # An omitted venue is kept, an explicit null clears it.
+    start = {"starts_at": "2026-11-06T19:00:00Z"}
+    assert (
+        post(client, f"/matches/{first}/reschedule", {**start, "venue": "Hall"})["venue"] == "Hall"
+    )
+    assert post(client, f"/matches/{first}/reschedule", start)["venue"] == "Hall"
+    assert post(client, f"/matches/{first}/reschedule", {**start, "venue": None})["venue"] is None
     assert post(client, f"/matches/{first}/postpone")["status"] == "postponed"
 
     played = post(client, f"/matches/{first}/result", STRAIGHT_WIN)

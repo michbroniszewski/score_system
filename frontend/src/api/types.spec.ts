@@ -9,6 +9,9 @@ type Fields<X> = { [K in keyof X]-?: true }
 const fields = {
   TeamRef: { id: true, name: true } satisfies Fields<T.TeamRef>,
   PlayerRef: { id: true, name: true } satisfies Fields<T.PlayerRef>,
+  PresetOut: { name: true, discipline: true, sets_to_win: true, stats: true } satisfies Fields<
+    T.PresetOut
+  >,
   CompetitionOut: { slug: true, name: true, preset: true, timezone: true } satisfies Fields<
     T.CompetitionOut
   >,

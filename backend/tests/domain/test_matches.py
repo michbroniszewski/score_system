@@ -28,14 +28,15 @@ def match() -> Match:
     return Match(round=1, home="A", away="B")
 
 
-def test_reschedule_stores_utc_and_keeps_venue(match: Match) -> None:
+def test_reschedule_stores_utc_and_sets_venue(match: Match) -> None:
     with_venue = reschedule(match, FRIDAY_8PM, venue="Hall 1")
-    moved = reschedule(with_venue, FRIDAY_8PM + timedelta(days=1))
+    moved = reschedule(with_venue, FRIDAY_8PM + timedelta(days=1), with_venue.venue)
 
     assert moved.starts_at == datetime(2026, 11, 7, 19, 0, tzinfo=UTC)
     assert moved.starts_at is not None and moved.starts_at.tzinfo == UTC
     assert moved.venue == "Hall 1"
     assert moved.status == S.SCHEDULED
+    assert reschedule(with_venue, FRIDAY_8PM).venue is None
 
 
 def test_reschedule_rejects_naive_datetime(match: Match) -> None:

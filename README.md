@@ -18,14 +18,17 @@ make migrate            # create the database tables
 make seed               # optional: load a sample volleyball league
 ```
 
+Or, after `cp .env.example .env` and `make install`, run `make dev`: it does the last three steps in one go and can be repeated safely.
+
 Then open:
 
 - API health check: http://localhost:8000/api/v1/health
 - API docs (Swagger UI): http://localhost:8000/docs
 - Frontend: http://localhost:5173 (the public site, reading the local API)
+- Admin panel: http://localhost:5173/#/admin (create competitions, enter teams and rosters, generate fixtures, record results and statistics; local only, not part of the Pages site)
 - Adminer (database browser): http://localhost:8080 (system PostgreSQL, server `db`)
 
-In Swagger UI you can try the whole API: create a competition, enter teams, generate fixtures, record results and read the standings. After `make seed`, see for example `GET /api/v1/competitions/sample-volleyball-league/standings`.
+The admin panel and Swagger UI both change the local database. In Swagger UI you can try the whole API: create a competition, enter teams, generate fixtures, record results and read the standings. After `make seed`, see for example `GET /api/v1/competitions/sample-volleyball-league/standings`.
 
 `make down` stops everything; database data stays in the `db-data` volume.
 

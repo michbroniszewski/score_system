@@ -59,6 +59,8 @@ def test_roster_keeps_history(client: TestClient, league: dict[str, Any]) -> Non
     assert left["left_on"] == "2026-12-31"
     assert get(client, roster_path(eagles)) == [left]
     assert [e["number"] for e in get(client, roster_path(owls))] == [10]
+    # The whole competition at once (the admin panel offers free players from it).
+    assert [e["team_id"] for e in get(client, "/competitions/league/roster")] == [eagles, owls]
 
 
 def test_roster_rules(client: TestClient, league: dict[str, Any]) -> None:

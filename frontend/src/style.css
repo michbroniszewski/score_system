@@ -19,6 +19,8 @@ a {
 }
 
 .site-header {
+  display: flex;
+  justify-content: space-between;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--line);
 }
@@ -114,4 +116,59 @@ th {
 
 .error {
   color: #b42318;
+}
+
+/* Admin panel forms */
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.form label.check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.form .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+}
+
+.set-row {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.set-row input {
+  width: 4.5rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.inline {
+  display: flex;
+  gap: 0.25rem;
 }

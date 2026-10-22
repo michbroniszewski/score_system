@@ -21,6 +21,7 @@ from score_system.api.schemas import (
     PlayerPatch,
     PlayerRef,
     PlayerStatsOut,
+    PresetOut,
     RescheduleIn,
     ResultIn,
     RosterEntryOut,
@@ -36,6 +37,7 @@ from score_system.api.schemas import (
 from score_system.application import services
 from score_system.domain import matches as edits
 from score_system.domain.models import Match, SetScore, StandingRow
+from score_system.domain.rules import RuleSet
 from score_system.infrastructure.orm import MatchEventRow, PlayerRow, RosterEntryRow
 from score_system.infrastructure.presets import preset_names
 from score_system.infrastructure.repository import Repository
@@ -55,6 +57,14 @@ def health() -> dict[str, str]:
 def list_presets() -> list[str]:
     """Discipline rule presets a competition can use."""
     return list(preset_names())
+
+
+@router.get("/presets/{name}")
+def get_preset(name: str) -> PresetOut:
+    rules = services.preset(name)
+    return PresetOut(
+        name=name, discipline=rules.discipline, sets_to_win=rules.sets_to_win, stats=rules.stats
+    )
 
 
 # --- clubs --------------------------------------------------------------------
@@ -174,7 +184,11 @@ def get_match(match_id: UUID, repo: Repo) -> MatchOut:
 
 @router.post("/matches/{match_id}/reschedule")
 def reschedule(match_id: UUID, body: RescheduleIn, repo: Repo) -> MatchOut:
-    return _changed(repo, match_id, lambda m, _: edits.reschedule(m, body.starts_at, body.venue))
+    def edit(match: Match, _: RuleSet) -> Match:
+        venue = body.venue if "venue" in body.model_fields_set else match.venue
+        return edits.reschedule(match, body.starts_at, venue)
+
+    return _changed(repo, match_id, edit)
 
 
 @router.post("/matches/{match_id}/postpone")
@@ -231,6 +245,13 @@ def get_player(player_id: UUID, repo: Repo) -> PlayerOut:
 def update_player(player_id: UUID, body: PlayerPatch, repo: Repo) -> PlayerOut:
     row = services.update_player(repo, player_id, body.first_name, body.last_name)
     return PlayerOut.model_validate(row)
+
+
+@router.get("/competitions/{slug}/roster")
+def get_competition_roster(slug: str, repo: Repo) -> list[RosterEntryOut]:
+    """Current and past roster entries of all teams, by last name."""
+    comp = services.competition(repo, slug)
+    return [_entry_out(e, p) for e, p in services.competition_roster(repo, comp)]
 
 
 @router.get("/competitions/{slug}/teams/{team_id}/roster")
