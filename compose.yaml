@@ -30,8 +30,10 @@ services:
       # Inside the Compose network, containers reach each other by service
       # name, so the database host is simply "db".
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-score}:${POSTGRES_PASSWORD:-score}@db:5432/${POSTGRES_DB:-score_system}
+    # Published on 127.0.0.1 only: the API has no login yet, so it must not be reachable
+    # from other machines on the network (a plain "8000:8000" listens on all interfaces).
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     # Start only once the database is healthy.
     depends_on:
       db:
@@ -52,8 +54,9 @@ services:
     environment:
       # The Vite dev server forwards /api requests to the api service.
       API_PROXY_TARGET: http://api:8000
+    # Local only, like the API: the dev server also serves the admin panel.
     ports:
-      - "${FRONTEND_PORT:-5173}:5173"
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
     depends_on:
       - api
 

@@ -94,6 +94,13 @@ def test_match_lifecycle(client: TestClient, league: list[dict[str, Any]]) -> No
     moved = post(client, f"/matches/{first}/reschedule", {"starts_at": "2026-11-06T20:00:00+01:00"})
     assert moved["starts_at"] == "2026-11-06T19:00:00Z"
     post(client, f"/matches/{first}/reschedule", {"starts_at": "2026-11-06T20:00:00"}, 422)
+    # An omitted venue is kept, an explicit null clears it.
+    start = {"starts_at": "2026-11-06T19:00:00Z"}
+    assert (
+        post(client, f"/matches/{first}/reschedule", {**start, "venue": "Hall"})["venue"] == "Hall"
+    )
+    assert post(client, f"/matches/{first}/reschedule", start)["venue"] == "Hall"
+    assert post(client, f"/matches/{first}/reschedule", {**start, "venue": None})["venue"] is None
     assert post(client, f"/matches/{first}/postpone")["status"] == "postponed"
 
     played = post(client, f"/matches/{first}/result", STRAIGHT_WIN)

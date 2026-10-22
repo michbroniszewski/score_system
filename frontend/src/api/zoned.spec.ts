@@ -20,4 +20,8 @@ describe('utcToZoned', () => {
     expect(utcToZoned('2026-11-06T23:30:00Z', 'Europe/Warsaw')).toBe('2026-11-07T00:30')
     expect(utcToZoned('2026-06-07T17:00:00Z', 'UTC')).toBe('2026-06-07T17:00')
   })
+
+  it('ignores seconds a browser may add to the typed time', () => {
+    expect(zonedToUtc('2026-11-06T19:00:30', 'Europe/Warsaw')).toBe('2026-11-06T18:00:00.000Z')
+  })
 })

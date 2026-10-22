@@ -207,6 +207,12 @@ def update_player(
     return row
 
 
+def competition_roster(
+    repo: Repository, comp: CompetitionRow
+) -> list[tuple[RosterEntryRow, PlayerRow]]:
+    return repo.roster_entries(comp.id)
+
+
 def roster(
     repo: Repository, comp: CompetitionRow, team_id: UUID
 ) -> list[tuple[RosterEntryRow, PlayerRow]]:

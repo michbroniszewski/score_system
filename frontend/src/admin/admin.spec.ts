@@ -50,6 +50,7 @@ beforeEach(() => {
     'GET /api/v1/matches/m1/events': [],
     'GET /api/v1/competitions/league/teams/t1/roster': [anna],
     'GET /api/v1/competitions/league/teams/t2/roster': [],
+    'GET /api/v1/competitions/league/roster': [anna],
   }
   sent = []
   vi.stubGlobal(
@@ -195,6 +196,86 @@ describe('admin panel', () => {
           joined_on: null,
         },
       },
+    ])
+  })
+
+  it('stops loading the competition page when its matches cannot be read', async () => {
+    delete responses['GET /api/v1/competitions/league/matches']
+    const { page } = await open('/admin/competitions/league')
+
+    expect(page.text()).toContain('Nie udało się wczytać danych.')
+    expect(page.find('form').exists()).toBe(false) // no forms for a state it does not know
+  })
+
+  it('cancels a match only after confirmation', async () => {
+    responses['POST /api/v1/matches/m1/cancel'] = { ...scheduled, status: 'cancelled' }
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const { page } = await open('/admin/competitions/league/matches/m1')
+    const cancel = page.findAll('button').find((b) => b.text() === 'Odwołaj mecz')!
+
+    await cancel.trigger('click')
+    expect(sent).toEqual([])
+    await cancel.trigger('click')
+    await flushPromises()
+
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(sent.map((r) => r.url)).toEqual(['/api/v1/matches/m1/cancel'])
+    expect(page.text()).toContain('odwołany')
+    confirm.mockRestore()
+  })
+
+  it('rejects a half-filled set instead of dropping it', async () => {
+    const { page } = await open('/admin/competitions/league/matches/m1')
+
+    const inputs = page.findAll('.set-row input')
+    for (const [i, value] of [25, 20, 25].entries()) await inputs[i]!.setValue(value)
+    await page.findAll('form')[1]!.trigger('submit')
+    await flushPromises()
+
+    expect(sent).toEqual([])
+    expect(page.text()).toContain('Set 2: wpisz wynik obu drużyn.')
+  })
+
+  it('keeps typed set scores when the date is saved', async () => {
+    responses['POST /api/v1/matches/m1/reschedule'] = { ...scheduled, starts_at: '2026-11-06T18:00:00Z' }
+    const { page } = await open('/admin/competitions/league/matches/m1')
+
+    await page.findAll('.set-row input')[0]!.setValue(25)
+    await page.find('input[type="datetime-local"]').setValue('2026-11-06T19:00')
+    await page.findAll('form')[0]!.trigger('submit')
+    await flushPromises()
+
+    expect((page.findAll('.set-row input')[0]!.element as HTMLInputElement).value).toBe('25')
+    expect(page.text()).toContain('19:00') // the page shows the saved date
+  })
+
+  it('offers only players in the roster on the match day, once each', async () => {
+    responses['GET /api/v1/matches/m1'] = {
+      ...scheduled,
+      status: 'played',
+      starts_at: '2026-10-15T17:00:00Z',
+      sets: [{ home: 25, away: 20 }],
+    }
+    const entry = (id: string, player: string, joined: string | null, left: string | null) => ({
+      ...anna,
+      id,
+      player: { ...anna.player, id: player, first_name: player },
+      joined_on: joined,
+      left_on: left,
+    })
+    responses['GET /api/v1/competitions/league/teams/t1/roster'] = [
+      entry('e1', 'Anna', null, '2026-10-20'), // first spell, covers the match day
+      entry('e2', 'Anna', '2026-10-21', null), // the same player back later
+      entry('e3', 'Basia', null, '2026-10-01'), // left before the match
+      entry('e4', 'Celina', '2026-10-16', null), // joined after it
+    ]
+    const { page } = await open('/admin/competitions/league/matches/m1')
+
+    const form = page.findAll('form').at(-1)!
+    await form.findAll('select')[0]!.setValue('t1')
+
+    expect(form.findAll('select')[1]!.findAll('option').map((o) => o.text())).toEqual([
+      '7 Anna Nowak',
     ])
   })
 })

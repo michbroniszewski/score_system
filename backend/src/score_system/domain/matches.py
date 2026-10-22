@@ -20,7 +20,7 @@ class InvalidTransitionError(DomainError):
 
 
 def reschedule(match: Match, starts_at: datetime, venue: str | None = None) -> Match:
-    """Set a (new) date, and optionally a venue; the current venue is kept when None."""
+    """Set a (new) date and the venue (None for no venue)."""
     _require(match, OPEN, "reschedule")
     if starts_at.tzinfo is None:
         raise DomainError("starts_at must be timezone-aware")
@@ -28,7 +28,7 @@ def reschedule(match: Match, starts_at: datetime, venue: str | None = None) -> M
         match,
         status=S.SCHEDULED,
         starts_at=starts_at.astimezone(UTC),
-        venue=match.venue if venue is None else venue,
+        venue=venue,
     )
 
 

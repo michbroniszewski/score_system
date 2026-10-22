@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { send } from '../api/client'
 import { score, STATUS_LABELS } from '../api/format'
 import type { CompetitionOut, MatchOut, TeamOut } from '../api/types'
@@ -12,6 +12,12 @@ const competition = useApi<CompetitionOut>(() => `competitions/${props.slug}`)
 const teams = useApi<TeamOut[]>(() => `competitions/${props.slug}/teams`)
 const matches = useApi<MatchOut[]>(() => `competitions/${props.slug}/matches`)
 const savedTeams = useApi<TeamOut[]>(() => 'teams')
+
+// All four must load: without the matches the page would offer forms that only work
+// before the fixtures exist.
+const sources = [competition, teams, matches, savedTeams]
+const loading = computed(() => sources.some((s) => s.loading.value))
+const loadError = computed(() => sources.find((s) => s.error.value)?.error.value ?? null)
 
 // Teams can be entered only until the fixtures are generated.
 const hasFixtures = computed(() => (matches.data.value?.length ?? 0) > 0)
@@ -39,7 +45,7 @@ async function enterTeam() {
   }
 }
 
-const double = reactive({ value: false })
+const double = ref(false)
 const generating = useAction()
 async function generate() {
   const body = { double: double.value }
@@ -51,8 +57,8 @@ async function generate() {
 
 <template>
   <LoadState
-    :loading="competition.loading.value"
-    :error="competition.error.value"
+    :loading="loading"
+    :error="loadError"
   >
     <h1>{{ competition.data.value?.name }}</h1>
     <p class="meta">
@@ -116,7 +122,7 @@ async function generate() {
       @submit.prevent="generate"
     >
       <label class="check"><input
-        v-model="double.value"
+        v-model="double"
         type="checkbox"
       > mecz i rewanż</label>
       <button :disabled="generating.busy.value || (teams.data.value?.length ?? 0) < 2">

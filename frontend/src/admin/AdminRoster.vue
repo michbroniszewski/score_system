@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
-import { getJson, send } from '../api/client'
+import { computed, reactive } from 'vue'
+import { send } from '../api/client'
 import type { RosterEntryOut, TeamOut } from '../api/types'
 import { useApi } from '../api/useApi'
 import LoadState from '../components/LoadState.vue'
@@ -14,30 +14,19 @@ const roster = useApi<RosterEntryOut[]>(
 const team = computed(() => teams.data.value?.find((t) => t.id === props.teamId))
 
 // Players of this competition who are in no roster now can join this one (a transfer).
-const allEntries = ref<RosterEntryOut[]>([])
-async function loadAllEntries() {
-  const list = teams.data.value ?? []
-  try {
-    const rosters = await Promise.all(
-      list.map((t) => getJson<RosterEntryOut[]>(`competitions/${props.slug}/teams/${t.id}/roster`)),
-    )
-    allEntries.value = rosters.flat()
-  } catch {
-    allEntries.value = [] // the choice is only a convenience; a new player can still be added
-  }
-}
-watch(() => teams.data.value, loadAllEntries)
+const allEntries = useApi<RosterEntryOut[]>(() => `competitions/${props.slug}/roster`)
 const freePlayers = computed(() => {
-  const active = new Set(allEntries.value.filter((e) => !e.left_on).map((e) => e.player.id))
+  const entries = allEntries.data.value ?? []
+  const active = new Set(entries.filter((e) => !e.left_on).map((e) => e.player.id))
   const free = new Map(
-    allEntries.value.filter((e) => !active.has(e.player.id)).map((e) => [e.player.id, e.player]),
+    entries.filter((e) => !active.has(e.player.id)).map((e) => [e.player.id, e.player]),
   )
   return [...free.values()]
 })
 
 function reload() {
   roster.reload()
-  void loadAllEntries()
+  allEntries.reload()
 }
 
 const form = reactive({

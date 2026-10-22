@@ -15,9 +15,11 @@ export function useApi<T>(path: () => string): {
   const version = ref(0)
   watch(
     [path, version],
-    async ([url], _, onCleanup) => {
+    async ([url], [previousUrl], onCleanup) => {
       let current = true
       onCleanup(() => (current = false))
+      // Another resource (e.g. a new route parameter): never show the previous one's data.
+      if (url !== previousUrl) data.value = null
       if (!url) return
       loading.value = data.value === null // keep showing old data while reloading
       error.value = null

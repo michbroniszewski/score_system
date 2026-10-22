@@ -1181,6 +1181,50 @@
         }
       }
     },
+    "/api/v1/competitions/{slug}/roster": {
+      "get": {
+        "summary": "Get Competition Roster",
+        "description": "Current and past roster entries of all teams, by last name.",
+        "operationId": "get_competition_roster_api_v1_competitions__slug__roster_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RosterEntryOut"
+                  },
+                  "title": "Response Get Competition Roster Api V1 Competitions  Slug  Roster Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/competitions/{slug}/teams/{team_id}/roster": {
       "get": {
         "summary": "Get Roster",
@@ -1914,7 +1958,8 @@
                 "type": "null"
               }
             ],
-            "title": "Venue"
+            "title": "Venue",
+            "description": "Omitted: keep the venue; null: clear it."
           }
         },
         "type": "object",

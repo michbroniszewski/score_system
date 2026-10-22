@@ -149,7 +149,9 @@ class MatchOut(BaseModel):
 
 class RescheduleIn(Input):
     starts_at: AwareDatetime
-    venue: str | None = Field(default=None, max_length=200)
+    venue: str | None = Field(
+        default=None, max_length=200, description="Omitted: keep the venue; null: clear it."
+    )
 
 
 class ResultIn(Input):

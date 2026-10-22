@@ -34,38 +34,67 @@ const status = computed(() => match.data.value?.status)
 const isOpen = computed(() => status.value === 'scheduled' || status.value === 'postponed')
 const canRecord = computed(() => status.value !== undefined && status.value !== 'cancelled')
 const setsToWin = computed(() => preset.data.value?.sets_to_win ?? 3)
+// The forms need all three, so they appear only once the preset has loaded too.
+const loading = computed(() => [match, competition, preset].some((s) => s.loading.value))
 
-// The forms start from the stored match and are reset whenever it is reloaded.
+type SetRow = { home: number | ''; away: number | '' }
 const schedule = reactive({ startsAt: '', venue: '' })
-const sets = ref<{ home: number | ''; away: number | '' }[]>([])
+const sets = ref<SetRow[]>([])
+function resetSchedule(m: MatchOut) {
+  schedule.startsAt = m.starts_at ? utcToZoned(m.starts_at, timeZone.value) : ''
+  schedule.venue = m.venue ?? ''
+}
+function resetSets(m: MatchOut) {
+  sets.value = m.sets.length
+    ? m.sets.map((s) => ({ ...s }))
+    : Array.from({ length: setsToWin.value }, () => ({ home: '', away: '' }))
+}
+// Filled when a match is opened; later only a form's own save resets it, so values typed
+// into one form survive saving another.
 watch(
-  [() => match.data.value, () => competition.data.value, setsToWin],
-  ([m]) => {
-    if (!m) return
-    schedule.startsAt = m.starts_at ? utcToZoned(m.starts_at, timeZone.value) : ''
-    schedule.venue = m.venue ?? ''
-    sets.value = m.sets.length
-      ? m.sets.map((s) => ({ ...s }))
-      : Array.from({ length: setsToWin.value }, () => ({ home: '', away: '' }))
+  [() => match.data.value?.id, loading],
+  () => {
+    if (match.data.value && !loading.value) {
+      resetSchedule(match.data.value)
+      resetSets(match.data.value)
+    }
   },
   { immediate: true },
 )
 
+// Runs a match change; the API answers with the changed match. `body` is built inside the
+// action, so an invalid form shows its error like a rejected request does.
 const changing = useAction()
-async function change(path: string, body?: unknown) {
-  if (await changing.run(() => send('POST', `matches/${props.matchId}/${path}`, body))) {
-    match.reload()
-  }
+function change(path: string, body?: () => unknown, after?: (m: MatchOut) => void) {
+  return changing.run(async () => {
+    const updated = await send<MatchOut>('POST', `matches/${props.matchId}/${path}`, body?.())
+    match.data.value = updated
+    after?.(updated)
+  })
 }
 
 function reschedule() {
-  const startsAt = zonedToUtc(schedule.startsAt, timeZone.value)
-  return change('reschedule', { starts_at: startsAt, venue: schedule.venue || null })
+  return change(
+    'reschedule',
+    // An empty venue is sent as null, which clears it.
+    () => ({ starts_at: zonedToUtc(schedule.startsAt, timeZone.value), venue: schedule.venue || null }),
+    resetSchedule,
+  )
 }
 
-function recordResult() {
-  const filled = sets.value.filter((s) => s.home !== '' && s.away !== '')
-  return change('result', { sets: filled })
+function cancel() {
+  // A cancelled match cannot be reopened.
+  if (window.confirm('Odwołać mecz? Tego nie da się cofnąć.')) return change('cancel')
+}
+
+// Unused rows at the end are left out; a half-filled row is an error, not a shorter result.
+function filledSets() {
+  const rows = [...sets.value]
+  while (rows.length && rows.at(-1)!.home === '' && rows.at(-1)!.away === '') rows.pop()
+  return rows.map(({ home, away }, i) => {
+    if (home === '' || away === '') throw new Error(`Set ${i + 1}: wpisz wynik obu drużyn.`)
+    return { home, away }
+  })
 }
 
 const walkoverWinner = ref('')
@@ -81,8 +110,22 @@ const roster = computed(() => {
 const teamName = (id: string) =>
   [match.data.value?.home, match.data.value?.away].find((t) => t?.id === id)?.name ?? ''
 
+// The match day in the competition's time zone; the API accepts statistics only for
+// players in the roster on that day (or, with no date, in the current roster).
+const matchDay = computed(() => {
+  const startsAt = match.data.value?.starts_at
+  return startsAt ? utcToZoned(startsAt, timeZone.value).slice(0, 10) : null
+})
+function inRosterOn(entry: RosterEntryOut, day: string | null): boolean {
+  if (day === null) return entry.left_on === null
+  return (!entry.joined_on || entry.joined_on <= day) && (!entry.left_on || entry.left_on >= day)
+}
+
 const event = reactive({ teamId: '', playerId: '', stat: '', value: 1 })
-const players = computed(() => roster.value[event.teamId] ?? [])
+const players = computed(() => {
+  const entries = (roster.value[event.teamId] ?? []).filter((e) => inRosterOn(e, matchDay.value))
+  return [...new Map(entries.map((e) => [e.player.id, e])).values()] // one per player
+})
 const eventing = useAction()
 async function addEvent() {
   const body = {
@@ -104,8 +147,8 @@ async function deleteEvent(id: string) {
 
 <template>
   <LoadState
-    :loading="match.loading.value || competition.loading.value"
-    :error="match.error.value ?? competition.error.value"
+    :loading="loading"
+    :error="match.error.value ?? competition.error.value ?? preset.error.value"
   >
     <template v-if="match.data.value">
       <p class="meta">
@@ -153,7 +196,7 @@ async function deleteEvent(id: string) {
           </button>
           <button
             :disabled="changing.busy.value"
-            @click="change('cancel')"
+            @click="cancel"
           >
             Odwołaj mecz
           </button>
@@ -164,7 +207,7 @@ async function deleteEvent(id: string) {
         <h2>Wynik</h2>
         <form
           class="form"
-          @submit.prevent="recordResult"
+          @submit.prevent="change('result', () => ({ sets: filledSets() }), resetSets)"
         >
           <div
             v-for="(set, i) in sets"
@@ -210,7 +253,7 @@ async function deleteEvent(id: string) {
         <h2>Walkower</h2>
         <form
           class="form"
-          @submit.prevent="change('walkover', { winner: walkoverWinner })"
+          @submit.prevent="change('walkover', () => ({ winner: walkoverWinner }), resetSets)"
         >
           <label>Zwycięzca
             <select

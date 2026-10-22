@@ -65,4 +65,14 @@ describe('send', () => {
       'name: String should have at least 1 character',
     )
   })
+
+  it('shows an error on the whole body without a field name', async () => {
+    const invalid = new Response(
+      '{"detail": [{"loc": ["body"], "msg": "Value error, give team_id or team"}, {"msg": "odd"}]}',
+      { status: 422 },
+    )
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(invalid))
+
+    await expect(send('POST', 'teams', {})).rejects.toThrow('Value error, give team_id or team; odd')
+  })
 })

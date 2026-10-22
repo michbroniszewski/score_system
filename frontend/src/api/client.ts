@@ -48,11 +48,17 @@ export async function send<T>(
 async function errorDetail(response: Response): Promise<string | null> {
   try {
     const { detail } = (await response.json()) as {
-      detail?: string | { loc: (string | number)[]; msg: string }[]
+      detail?: string | { loc?: (string | number)[]; msg: string }[]
     }
     if (typeof detail === 'string') return detail
     if (Array.isArray(detail)) {
-      return detail.map((e) => `${e.loc.slice(1).join('.')}: ${e.msg}`).join('; ')
+      // loc is e.g. ["body", "sets", 0, "home"]; an error on the whole body has no field.
+      return detail
+        .map((e) => {
+          const field = (e.loc ?? []).slice(1).join('.')
+          return field ? `${field}: ${e.msg}` : e.msg
+        })
+        .join('; ')
     }
   } catch {
     // not JSON

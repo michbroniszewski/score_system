@@ -24,9 +24,10 @@ function offsetMs(instant: number, timeZone: string): number {
   return asUtc - Math.floor(instant / 1000) * 1000
 }
 
-// "2026-11-07T19:00" in `timeZone` -> "2026-11-07T18:00:00.000Z".
+// "2026-11-07T19:00" in `timeZone` -> "2026-11-07T18:00:00.000Z" (seconds are dropped).
 export function zonedToUtc(local: string, timeZone: string): string {
-  const wall = Date.parse(`${local}:00Z`) // the wall-clock fields read as if they were UTC
+  // The wall-clock fields read as if they were UTC.
+  const wall = Date.parse(`${local.slice(0, 16)}:00Z`)
   // The offset depends on the instant (summer time), so correct once with the first guess.
   const first = wall - offsetMs(wall, timeZone)
   return new Date(wall - offsetMs(first, timeZone)).toISOString()
