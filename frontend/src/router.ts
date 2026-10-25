@@ -3,6 +3,7 @@ import CompetitionLayout from './views/CompetitionLayout.vue'
 import CompetitionList from './views/CompetitionList.vue'
 import MatchesView from './views/MatchesView.vue'
 import MatchView from './views/MatchView.vue'
+import PlayoffView from './views/PlayoffView.vue'
 import RosterView from './views/RosterView.vue'
 import StandingsView from './views/StandingsView.vue'
 import StatsView from './views/StatsView.vue'
@@ -20,6 +21,7 @@ const publicRoutes: RouteRecordRaw[] = [
       { path: 'teams', name: 'teams', component: TeamsView, props: true },
       { path: 'teams/:teamId', name: 'roster', component: RosterView, props: true },
       { path: 'stats', name: 'stats', component: StatsView, props: true },
+      { path: 'playoff', name: 'playoff', component: PlayoffView, props: true },
       { path: 'matches/:matchId', name: 'match', component: MatchView, props: true },
     ],
   },

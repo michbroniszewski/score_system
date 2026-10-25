@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { send } from '../api/client'
 import { score, STATUS_LABELS } from '../api/format'
-import type { CompetitionOut, MatchOut, TeamOut } from '../api/types'
+import type { CompetitionOut, MatchOut, PlayoffOut, TeamOut } from '../api/types'
 import { useApi } from '../api/useApi'
 import LoadState from '../components/LoadState.vue'
 import { useAction } from './useAction'
@@ -21,6 +21,12 @@ const loadError = computed(() => sources.find((s) => s.error.value)?.error.value
 
 // Teams can be entered only until the fixtures are generated.
 const hasFixtures = computed(() => (matches.data.value?.length ?? 0) > 0)
+// The play-off starts from the final table: every regular-season match must be over.
+const seasonOver = computed(
+  () =>
+    hasFixtures.value &&
+    !matches.data.value?.some((m) => m.status === 'scheduled' || m.status === 'postponed'),
+)
 const offered = computed(() =>
   (savedTeams.data.value ?? []).filter((t) => !teams.data.value?.some((e) => e.id === t.id)),
 )
@@ -31,6 +37,20 @@ const rounds = computed(() => {
   }
   return [...byRound.entries()]
 })
+
+// Only a competition with a play-off format has one; the path waits for the competition.
+const playoff = useApi<PlayoffOut>(() =>
+  competition.data.value?.playoff ? `competitions/${props.slug}/playoff` : '',
+)
+const starting = useAction()
+async function startPlayoff() {
+  if (!window.confirm('Rozpocząć play-off? Pary powstaną z obecnej tabeli i nie da się tego cofnąć.')) {
+    return
+  }
+  if (await starting.run(() => send('POST', `competitions/${props.slug}/playoff`))) {
+    playoff.reload()
+  }
+}
 
 const entry = reactive({ name: '', saved: false, savedId: '' })
 const entering = useAction()
@@ -114,6 +134,65 @@ async function generate() {
         {{ entering.error.value }}
       </p>
     </form>
+
+    <template v-if="competition.data.value?.playoff">
+      <h2>Play-off</h2>
+      <LoadState
+        :loading="playoff.loading.value"
+        :error="playoff.error.value"
+      >
+        <template v-if="playoff.data.value?.started">
+          <section
+            v-for="series in playoff.data.value.series"
+            :key="series.key"
+          >
+            <h3>
+              Seria {{ series.key }}:
+              <template v-if="series.home && series.away">
+                {{ series.home.name }} {{ series.home_wins }}:{{ series.away_wins }}
+                {{ series.away.name }}
+              </template>
+              <span
+                v-else
+                class="meta"
+              >czeka na wcześniejsze serie</span>
+            </h3>
+            <ul class="matches">
+              <li
+                v-for="match in series.matches"
+                :key="match.id"
+              >
+                <RouterLink :to="{ name: 'admin-match', params: { slug, matchId: match.id } }">
+                  <span class="teams">Mecz {{ match.round }}: {{ match.home.name }} – {{ match.away.name }}</span>
+                  <span class="score">{{ score(match) || STATUS_LABELS[match.status] }}</span>
+                </RouterLink>
+              </li>
+            </ul>
+          </section>
+        </template>
+        <div
+          v-else
+          class="form"
+        >
+          <p class="meta">
+            Format: {{ playoff.data.value?.format }}. Play-off można rozpocząć, gdy wszystkie
+            mecze fazy zasadniczej są zakończone.
+          </p>
+          <button
+            :disabled="starting.busy.value || !seasonOver"
+            @click="startPlayoff"
+          >
+            Rozpocznij play-off
+          </button>
+          <p
+            v-if="starting.error.value"
+            class="error"
+          >
+            {{ starting.error.value }}
+          </p>
+        </div>
+      </LoadState>
+    </template>
 
     <h2>Terminarz</h2>
     <form

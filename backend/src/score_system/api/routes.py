@@ -369,6 +369,7 @@ def _playoff_out(playoff: services.Playoff, names: dict[str, str]) -> PlayoffOut
         series=[
             SeriesOut(
                 key=key,
+                sides=playoff.format.series[key].sides,
                 wins=s.wins,
                 home=ref(s.high),
                 away=ref(s.low),

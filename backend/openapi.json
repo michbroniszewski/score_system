@@ -2427,6 +2427,14 @@
             "type": "string",
             "title": "Key"
           },
+          "sides": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sides",
+            "description": "Where the teams come from (seed N, winner X, loser X); with more than two, the two best-seeded play."
+          },
           "wins": {
             "type": "integer",
             "title": "Wins",
@@ -2482,6 +2490,7 @@
         "type": "object",
         "required": [
           "key",
+          "sides",
           "wins",
           "home",
           "away",

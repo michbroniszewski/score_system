@@ -10,7 +10,14 @@ import { useAction } from './useAction'
 const router = useRouter()
 const competitions = useApi<CompetitionOut[]>(() => 'competitions')
 const presets = useApi<string[]>(() => 'presets')
-const form = reactive({ name: '', slug: '', preset: 'volleyball', timezone: 'Europe/Warsaw' })
+const playoffs = useApi<string[]>(() => 'playoffs')
+const form = reactive({
+  name: '',
+  slug: '',
+  preset: 'volleyball',
+  timezone: 'Europe/Warsaw',
+  playoff: null as string | null,
+})
 const { busy, error, run } = useAction()
 
 async function create() {
@@ -62,6 +69,16 @@ async function create() {
         <option
           v-for="name in presets.data.value"
           :key="name"
+        >{{ name }}</option>
+      </select>
+    </label>
+    <label>Play-off (nie można go później zmienić)
+      <select v-model="form.playoff">
+        <option :value="null">bez play-off</option>
+        <option
+          v-for="name in playoffs.data.value"
+          :key="name"
+          :value="name"
         >{{ name }}</option>
       </select>
     </label>

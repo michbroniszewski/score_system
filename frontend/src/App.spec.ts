@@ -6,6 +6,8 @@ import { routes } from './router'
 
 const eagles = { id: 't1', name: 'Eagles' }
 const owls = { id: 't2', name: 'Owls' }
+const hawks = { id: 't3', name: 'Hawks' }
+const doves = { id: 't4', name: 'Doves' }
 const played = {
   id: 'm1',
   round: 1,
@@ -78,6 +80,36 @@ const responses: Record<string, unknown> = {
     },
   ],
   '/api/v1/matches/m1': played,
+  '/api/v1/competitions/cup': {
+    slug: 'cup',
+    name: 'City Cup',
+    preset: 'volleyball',
+    timezone: 'Europe/Warsaw',
+    playoff: 'final-four', // as backend tests/domain/test_playoff.py VALID
+  },
+  '/api/v1/competitions/cup/playoff': {
+    format: 'Final four',
+    started: true,
+    series: [
+      {
+        key: 'S1',
+        sides: ['seed 1', 'seed 4'],
+        wins: 2,
+        home: eagles,
+        away: owls,
+        home_wins: 1,
+        away_wins: 0,
+        winner: null,
+        matches: [{ ...played, series: 'S1' }, { ...scheduled, round: 2, series: 'S1' }],
+      },
+      { key: 'S2', sides: ['seed 2', 'seed 3'], wins: 2, home: hawks, away: doves, home_wins: 0, away_wins: 0, winner: null, matches: [] },
+      { key: 'F', sides: ['winner S1', 'winner S2'], wins: 1, home: null, away: null, home_wins: 0, away_wins: 0, winner: null, matches: [] },
+    ],
+    places: [
+      ...[1, 2, 3, 4].map((place) => ({ place, team: null })),
+      { place: 5, team: owls },
+    ],
+  },
   '/api/v1/matches/m1/events': [
     { id: 'ev1', team_id: 't1', player: { id: 'p1', name: 'Anna Nowak' }, stat: 'aces', value: 2 },
   ],
@@ -156,6 +188,34 @@ describe('public site', () => {
       'MVP',
     ])
     expect(page.find('tbody').text()).toMatch(/Anna Nowak\s*Eagles\s*12\s*2\s*0\s*1/)
+  })
+
+  it('shows the play-off tab only for a competition with a play-off', async () => {
+    const league = await open('/competitions/league')
+    expect(league.find('.tabs').text()).not.toContain('Play-off')
+
+    const cup = await open('/competitions/cup')
+    expect(cup.find('.tabs').text()).toContain('Play-off')
+  })
+
+  it('shows the play-off series, their games and the final places', async () => {
+    const page = await open('/competitions/cup/playoff')
+
+    expect(page.findAll('.places li').map((li) => li.text())).toEqual([
+      ...Array(4).fill('do ustalenia'),
+      'Owls',
+    ])
+    const [semi, , final] = page.findAll('.series')
+    expect(semi!.text()).toMatch(/Seria S1.*do 2 zwycięstw.*Eagles 1:0 Owls/)
+    expect(semi!.text()).toMatch(/Mecz 1: Eagles – Owls\s*3:0/)
+    expect(final!.text()).toMatch(/do 1 zwycięstwa.*zwycięzca S1 – zwycięzca S2/)
+  })
+
+  it('names a play-off game by its series', async () => {
+    responses['/api/v1/matches/m9'] = { ...played, id: 'm9', series: 'S1' }
+    const page = await open('/competitions/cup/matches/m9')
+
+    expect(page.text()).toContain('Play-off, seria S1, mecz 1')
   })
 
   it('says when data cannot be loaded', async () => {

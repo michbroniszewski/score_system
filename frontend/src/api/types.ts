@@ -96,3 +96,27 @@ export interface PlayerStatsOut {
   team: TeamRef | null
   stats: Record<string, number>
 }
+
+export interface SeriesOut {
+  key: string
+  sides: string[]
+  wins: number
+  home: TeamRef | null
+  away: TeamRef | null
+  home_wins: number
+  away_wins: number
+  winner: TeamRef | null
+  matches: MatchOut[]
+}
+
+export interface PlaceOut {
+  place: number
+  team: TeamRef | null
+}
+
+export interface PlayoffOut {
+  format: string
+  started: boolean
+  series: SeriesOut[]
+  places: PlaceOut[]
+}

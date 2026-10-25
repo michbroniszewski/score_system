@@ -36,6 +36,7 @@ beforeEach(() => {
   responses = {
     'GET /api/v1/competitions': [league],
     'GET /api/v1/presets': ['volleyball'],
+    'GET /api/v1/playoffs': ['tauron-liga'],
     'GET /api/v1/presets/volleyball': {
       name: 'volleyball',
       discipline: 'volleyball',
@@ -84,6 +85,7 @@ describe('admin panel', () => {
     const [name, slug] = page.findAll('input')
     await name!.setValue('City League')
     await slug!.setValue('league')
+    await page.findAll('select')[1]!.setValue('tauron-liga')
     await page.find('form').trigger('submit')
     await flushPromises()
 
@@ -91,7 +93,13 @@ describe('admin panel', () => {
       {
         method: 'POST',
         url: '/api/v1/competitions',
-        body: { name: 'City League', slug: 'league', preset: 'volleyball', timezone: 'Europe/Warsaw' },
+        body: {
+          name: 'City League',
+          slug: 'league',
+          preset: 'volleyball',
+          timezone: 'Europe/Warsaw',
+          playoff: 'tauron-liga',
+        },
       },
     ])
     await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('admin-competition'))
@@ -197,6 +205,81 @@ describe('admin panel', () => {
         },
       },
     ])
+  })
+
+  it('starts the play-off after confirmation and shows a refusal', async () => {
+    const cup = { ...league, playoff: 'tauron-liga' }
+    responses['GET /api/v1/competitions/league'] = cup
+    responses['GET /api/v1/competitions/league/playoff'] = {
+      format: 'TAURON Liga',
+      started: false,
+      series: [],
+      places: [],
+    }
+    responses['GET /api/v1/competitions/league/matches'] = [{ ...scheduled, status: 'played' }]
+    responses['POST /api/v1/competitions/league/playoff'] = new Response(
+      JSON.stringify({ detail: 'the play-off has already started' }),
+      { status: 409 },
+    )
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const { page } = await open('/admin/competitions/league')
+    const start = page.findAll('button').find((b) => b.text() === 'Rozpocznij play-off')!
+
+    await start.trigger('click')
+    expect(sent).toEqual([])
+    await start.trigger('click')
+    await flushPromises()
+
+    expect(sent.map((r) => `${r.method} ${r.url}`)).toEqual([
+      'POST /api/v1/competitions/league/playoff',
+    ])
+    expect(page.text()).toContain('the play-off has already started')
+    confirm.mockRestore()
+  })
+
+  it('offers the play-off start only after the regular season', async () => {
+    responses['GET /api/v1/competitions/league'] = { ...league, playoff: 'tauron-liga' }
+    responses['GET /api/v1/competitions/league/matches'] = [scheduled]
+    responses['GET /api/v1/competitions/league/playoff'] = {
+      format: 'TAURON Liga',
+      started: false,
+      series: [],
+      places: [],
+    }
+    const { page } = await open('/admin/competitions/league')
+
+    const start = page.findAll('button').find((b) => b.text() === 'Rozpocznij play-off')!
+    expect(start.attributes('disabled')).toBeDefined()
+  })
+
+  it('lists the play-off games once started', async () => {
+    responses['GET /api/v1/competitions/league'] = { ...league, playoff: 'tauron-liga' }
+    responses['GET /api/v1/competitions/league/playoff'] = {
+      format: 'TAURON Liga',
+      started: true,
+      series: [
+        {
+          key: 'A',
+          sides: ['seed 1', 'seed 8'],
+          wins: 2,
+          home: eagles,
+          away: owls,
+          home_wins: 0,
+          away_wins: 0,
+          winner: null,
+          matches: [{ ...scheduled, series: 'A' }],
+        },
+        { key: 'E', sides: ['winner A', 'winner D'], wins: 2, home: null, away: null, home_wins: 0, away_wins: 0, winner: null, matches: [] },
+      ],
+      places: [],
+    }
+    const { page } = await open('/admin/competitions/league')
+
+    expect(page.text()).toContain('Seria A: Eagles 0:0 Owls')
+    expect(page.text()).toContain('Seria E: czeka na wcześniejsze serie')
+    const game = page.findAll('a').find((a) => a.text().startsWith('Mecz 1'))!
+    expect(game.attributes('href')).toBe('/admin/competitions/league/matches/m1')
+    expect(page.text()).not.toContain('Rozpocznij play-off')
   })
 
   it('stops loading the competition page when its matches cannot be read', async () => {

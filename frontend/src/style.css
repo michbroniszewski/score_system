@@ -172,3 +172,11 @@ button {
   display: flex;
   gap: 0.25rem;
 }
+
+.places {
+  padding-left: 1.5rem;
+}
+
+.series h3 .meta {
+  font-weight: normal;
+}

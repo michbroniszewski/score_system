@@ -69,6 +69,21 @@ const fields = {
     value: true,
   } satisfies Fields<T.EventOut>,
   PlayerStatsOut: { player: true, team: true, stats: true } satisfies Fields<T.PlayerStatsOut>,
+  SeriesOut: {
+    key: true,
+    sides: true,
+    wins: true,
+    home: true,
+    away: true,
+    home_wins: true,
+    away_wins: true,
+    winner: true,
+    matches: true,
+  } satisfies Fields<T.SeriesOut>,
+  PlaceOut: { place: true, team: true } satisfies Fields<T.PlaceOut>,
+  PlayoffOut: { format: true, started: true, series: true, places: true } satisfies Fields<
+    T.PlayoffOut
+  >,
 }
 
 const schemas = openapi.components.schemas as Record<string, { properties?: object }>

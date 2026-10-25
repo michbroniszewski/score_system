@@ -79,7 +79,10 @@ def test_start_pairs_the_table_and_schedules_two_games(client: TestClient) -> No
         ("A", 1, "T1"),
         ("A", 2, "T8"),
     ]
-    assert series(started, "E")["home"] is None
+    assert (series(started, "E")["home"], series(started, "E")["sides"]) == (
+        None,
+        ["winner A", "winner D"],
+    )
     post(client, "/competitions/liga/playoff", None, 409)  # only once
     # Play-off games are not season matches and do not change the table.
     assert all(m["series"] is None for m in get(client, "/competitions/liga/matches"))
