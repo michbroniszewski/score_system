@@ -167,6 +167,10 @@ class PlayoffFormatOut(BaseModel):
 
 class SeriesOut(BaseModel):
     key: str
+    sides: list[str] = Field(
+        description="Where the teams come from (seed N, winner X, loser X); with more than "
+        "two, the two best-seeded play."
+    )
     wins: int = Field(description="Games needed to win the series.")
     home: TeamRef | None = Field(description="The better-seeded team, host of game 1.")
     away: TeamRef | None

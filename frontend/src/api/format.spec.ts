@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatStart, score, statLabel } from './format'
+import { formatStart, matchLabel, score, sidesLabel, statLabel, winsLabel } from './format'
 import type { MatchOut } from './types'
 
 const match: MatchOut = {
@@ -46,5 +46,25 @@ describe('statLabel', () => {
   it('translates known statistics and keeps unknown codes', () => {
     expect(statLabel('aces')).toBe('Asy')
     expect(statLabel('goals')).toBe('goals')
+  })
+})
+
+describe('play-off labels', () => {
+  it('names a play-off game by its series', () => {
+    expect(matchLabel(match)).toBe('Kolejka 1')
+    expect(matchLabel({ ...match, series: 'A', round: 2 })).toBe('Play-off, seria A, mecz 2')
+  })
+
+  it('says how many wins a series needs', () => {
+    expect(winsLabel(1)).toBe('do 1 zwycięstwa')
+    expect(winsLabel(3)).toBe('do 3 zwycięstw')
+  })
+
+  it('describes where the teams of a series come from', () => {
+    expect(sidesLabel(['seed 1', 'seed 8'])).toBe('1. miejsce – 8. miejsce')
+    expect(sidesLabel(['winner A', 'winner D'])).toBe('zwycięzca A – zwycięzca D')
+    expect(sidesLabel(['loser A', 'loser B', 'loser C'])).toBe(
+      'dwie najwyżej rozstawione drużyny z: przegrany A, przegrany B, przegrany C',
+    )
   })
 })

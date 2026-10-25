@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { send } from '../api/client'
-import { formatStart, score, statLabel, STATUS_LABELS } from '../api/format'
+import { formatStart, matchLabel, score, statLabel, STATUS_LABELS } from '../api/format'
 import type {
   CompetitionOut,
   EventOut,
@@ -158,7 +158,7 @@ async function deleteEvent(id: string) {
       </p>
       <h1>{{ match.data.value.home.name }} – {{ match.data.value.away.name }}</h1>
       <p class="meta">
-        Kolejka {{ match.data.value.round }} ·
+        {{ matchLabel(match.data.value) }} ·
         {{ formatStart(match.data.value.starts_at, timeZone) }} ·
         {{ STATUS_LABELS[match.data.value.status] }}
         <strong v-if="score(match.data.value)"> {{ score(match.data.value) }}</strong>

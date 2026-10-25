@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { provide } from 'vue'
+import { computed, provide } from 'vue'
 import { useApi } from '../api/useApi'
 import type { CompetitionOut } from '../api/types'
 import LoadState from '../components/LoadState.vue'
@@ -9,12 +9,13 @@ const props = defineProps<{ slug: string }>()
 const { data, error, loading } = useApi<CompetitionOut>(() => `competitions/${props.slug}`)
 provide(COMPETITION, data)
 
-const tabs = [
+const tabs = computed(() => [
   { name: 'standings', label: 'Tabela' },
   { name: 'matches', label: 'Terminarz' },
+  ...(data.value?.playoff ? [{ name: 'playoff', label: 'Play-off' }] : []),
   { name: 'teams', label: 'Drużyny' },
   { name: 'stats', label: 'Statystyki' },
-]
+])
 </script>
 
 <template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatStart, score, statLabel, STATUS_LABELS } from '../api/format'
+import { formatStart, matchLabel, score, statLabel, STATUS_LABELS } from '../api/format'
 import { useApi } from '../api/useApi'
 import type { EventOut, MatchOut } from '../api/types'
 import LoadState from '../components/LoadState.vue'
@@ -29,7 +29,7 @@ const winner = computed(() => {
         {{ match.data.value.away.name }}
       </h2>
       <p class="meta">
-        Kolejka {{ match.data.value.round }} ·
+        {{ matchLabel(match.data.value) }} ·
         {{ formatStart(match.data.value.starts_at, competition?.timezone ?? 'UTC') }}
         <template v-if="match.data.value.venue">
           · {{ match.data.value.venue }}
